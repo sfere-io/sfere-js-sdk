@@ -98,11 +98,21 @@ run_idempotent() {
     printf '\n'
     return 0
   fi
-  local out status
-  set +e
-  out="$("$@" 2>&1)"
-  status=$?
-  set -e
+  local out status attempt
+  # A custom role created a moment ago is not yet visible to bucket IAM
+  # ("does not exist in the resource's hierarchy"); retry for up to ~2 min.
+  for attempt in $(seq 1 12); do
+    set +e
+    out="$("$@" 2>&1)"
+    status=$?
+    set -e
+    if [ "$status" -ne 0 ] && echo "$out" | grep -q "does not exist in the resource's hierarchy"; then
+      echo "  (custom role not propagated yet, retry ${attempt}/12)"
+      sleep 10
+      continue
+    fi
+    break
+  done
   if [ "$status" -eq 0 ]; then
     [ -n "$out" ] && echo "$out"
     return 0
