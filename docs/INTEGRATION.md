@@ -156,47 +156,30 @@ const sfere = SfereAnalytics.load({
 
 ## Deduplication
 
-Browser pixels (Meta Conversions API, TikTok Pixel, Google Ads) and server-side destinations both receive events. Use `sfere_dedup_id` to deduplicate:
-
-1. On a purchase, set `sfere_dedup_id` (a property, next to `transaction_id`) to your order ID:
+When a browser pixel and a server-side destination both report the same event, the ad platform counts it once only if both carry the same event ID **and** the same event name. The server-side destinations use the event's `messageId` as that ID, so give the pixel the `messageId` of the SDK event:
 
 ```javascript
-sfere.track("purchase", {
-  transaction_id: "order_456",
-  value: 179.98,
-  currency: "USD",
-  sfere_dedup_id: "order_456", // Must match the pixel's event_id
-  items: [ /* … */ ]
-});
+// Once the SDK has loaded, track() resolves to the sent event.
+const ctx = await sfere.track("generate_lead", { form_type: "demo" });
+const eventId = ctx.event.messageId;
+
+fbq("track", "Lead", {}, { eventID: eventId });                 // Meta: 4th argument
+ttq.track("Lead", {}, { event_id: eventId });                    // TikTok
+snaptr("track", "SIGN_UP", { client_dedup_id: eventId });       // Snap
+lintrk("track", { conversion_id: 123456, event_id: eventId });  // LinkedIn
 ```
 
-2. In your Meta and TikTok pixels, use the same order ID as the `event_id` parameter:
+Other platforms take it as OpenAI `oaiq("measure", name, props, { event_id })`, Microsoft UET `event_id`, X `conversion_id` and Google Ads `transaction_id`.
 
-```html
-<!-- Meta Pixel -->
-<script>
-  fbq("track", "Purchase", {
-    value: 179.98,
-    currency: "USD",
-    event_id: "order_456"  // Must match sfere_dedup_id
-  });
-</script>
+- **Names must match too.** The pixel's event name must be the one the destination sends for your SDK event (for example `generate_lead` becomes Meta `Lead`, TikTok `Lead`, Snap `SIGN_UP`).
+- **Loaded through Google Tag Manager?** Push the ID to the `dataLayer` from the `track()` result and read it in the pixel tags with a Data Layer Variable.
+- **Wait for the loaded instance.** Before the bundle loads, `window.sfere` is the loader stub, and its calls return the stub, not a promise. The loaded instance is itself thenable, so if you wrap it in a promise, box it (`resolve({ sfere })`); resolving a promise with it directly hands you `[Analytics, Context]` instead.
 
-<!-- TikTok Pixel -->
-<script>
-  ttq.track("Purchase", {
-    value: 179.98,
-    currency: "USD",
-    event_id: "order_456"  // Must match sfere_dedup_id
-  });
-</script>
-```
-
-If you don't set `sfere_dedup_id`, the SDK automatically uses the event's `messageId`. Server-side destinations will also use this key.
+`properties.sfere_dedup_id` is still set on every `track` (your own value, or the `messageId`), but the server-side destinations don't read it. Don't use it to pass an order ID to the pixel: the two IDs would no longer match.
 
 ## Known limitation: first-event cookie race
 
-On a landing page, pixel-set cookies (`_fbp`, `_ttp`, `_scid`, …) may not exist yet when the first event is sent, because the ad pixels run asynchronously. The first event can therefore lack the cookie-based identifiers; later events on the same page and the second page view carry them.
+On a landing page, pixel-set cookies (`_fbp`, `_ttp`, `_scid`, …) may not exist yet when the first event is sent, because the ad pixels run asynchronously. The same applies to Microsoft Clarity's `_clck` / `_clsk` cookies (`clarity_uid` / `clarity_sid`), which the Clarity script sets after it loads. The first event can therefore lack the cookie-based identifiers; later events on the same page and the second page view carry them.
 
 Click IDs carried in the landing URL are not affected: `gclid`, `wbraid`, `gbraid`, `ttclid`, `ScCid`, `twclid`, `epik`, `msclkid`, `li_fat_id`, `oppref` and `rdt_cid` are read from the URL on the very first event and persisted for the session, and a Meta `fbclid` is converted immediately to `context.clientIds.fbc` in the form `fb.1.<milliseconds>.<fbclid>` (a pixel-set `_fbc` cookie later takes precedence unless a newer `fbclid` arrives).
 

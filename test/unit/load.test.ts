@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SfereAnalytics, sfereEnrichment, version } from "../../src/index";
 import { captureFetch, clearBrowserState, setCookie, setUrl, uniqueKey } from "./helpers";
 
+const asRecord = (v: unknown): Record<string, unknown> => (v ?? {}) as Record<string, unknown>;
+
 const HOST = "https://ingest.example.com";
 
 beforeEach(clearBrowserState);
@@ -56,6 +58,30 @@ describe("standard delivery", () => {
       `${HOST}/api/s/a`,
     ]);
     expect(requests[0]!.headers.Authorization).toBe(`Basic ${btoa(`${writeKey}:`)}`);
+  });
+
+  it("carries identify traits into context.traits on later events, and not on identify", async () => {
+    const requests = captureFetch();
+    const sfere = SfereAnalytics.load({ writeKey: uniqueKey(), host: HOST });
+    await sfere.track("before_identify");
+    await sfere.identify("a@b.test", { email: "a@b.test", phone: "+966500000000" });
+    await sfere.track("generate_lead", { form_type: "demo" });
+    await sfere.page();
+
+    const [before, identify, lead, page] = requests.map((r) => r.body);
+    expect(asRecord(before!.context).traits).toBeUndefined();
+    expect(identify!.traits).toEqual({ email: "a@b.test", phone: "+966500000000" });
+    expect(asRecord(identify!.context).traits).toBeUndefined();
+    expect(asRecord(lead!.context).traits).toEqual({ email: "a@b.test", phone: "+966500000000" });
+    expect(asRecord(page!.context).traits).toEqual({ email: "a@b.test", phone: "+966500000000" });
+  });
+
+  it("does not carry traits when carryTraits is false", async () => {
+    const requests = captureFetch();
+    const sfere = SfereAnalytics.load({ writeKey: uniqueKey(), host: HOST, carryTraits: false });
+    await sfere.identify("u1", { email: "a@b.test" });
+    await sfere.track("generate_lead");
+    expect(asRecord(requests[1]!.body.context).traits).toBeUndefined();
   });
 
   it("uses http for an http host", async () => {

@@ -97,6 +97,7 @@ Options for `SfereAnalytics.load()` (`SfereLoadOptions` in `dist/index.d.ts`):
 | `sessionTimeoutMinutes` | number | no | `30` | Inactivity after which `context.session.id` rotates. |
 | `clickIdStorage` | `"session"` \| `"local"` | no | `"session"` | Where URL click IDs persist (`sfere_click_ids`). |
 | `disableClientPersistence` | boolean | no | auto | Keep the queue, anonymous ID and traits in memory only. Turned on automatically when localStorage or `document.cookie` throws (sandboxed iframes, hardened privacy modes); set `true` to force it. |
+| `carryTraits` | boolean | no | `true` | Copy identify traits into `context.traits` on every later event. |
 | `debug` | boolean | no | `false` | Log every event and plugin step to the console. |
 
 Script-tag attributes: `data-write-key`, `data-host`, and optionally `data-batching="true"`.
@@ -105,13 +106,14 @@ Script-tag attributes: `data-write-key`, `data-host`, and optionally `data-batch
 
 | Field | Value | Example |
 |-------|-------|---------|
-| `context.clientIds` | Ad platform identifiers from cookies and URL parameters; keys are `fbp, fbc, ttp, ttclid, scid, scclid, epik, li_fat_id, msclkid, oppref, gclid, wbraid, gbraid, twclid, rdt_cid` | `{ "fbp": "fb.1.1727500000000.123", "gclid": "CjwKCAj…" }` |
+| `context.clientIds` | Ad-platform and analytics identifiers from cookies and URL parameters; keys are `fbp, fbc, ttp, ttclid, scid, scclid, epik, li_fat_id, msclkid, oppref, obref, gclid, wbraid, gbraid, twclid, rdt_cid, clarity_uid, clarity_sid` | `{ "fbp": "fb.1.1727500000000.123", "gclid": "CjwKCAj…" }` |
 | `context.campaign.gad_source`, `context.campaign.gad_campaignid` | Google Ads landing parameters, merged into the UTM `campaign` object | `{ "source": "google", "name": "spring", "gad_source": "1", "gad_campaignid": "12345" }` |
 | `context.session` | Inactivity-based session, kept in localStorage `sfere_session` | `{ "id": 1727500000000 }` |
+| `context.traits` | The visitor's identify traits, copied onto every later event so server-side destinations can match on email and phone. Turn off with `carryTraits: false` | `{ "email": "fan@example.com", "phone": "+966500000000" }` |
 | `context.consent` | Categories from the `consent` option or `setConsent()`; omitted when unset | `{ "categoryPreferences": { "advertising": true } }` |
 | `context.page.lang` | `<html lang>` when set | `"ar"` |
 | `context.library` | This SDK, with the underlying library under `base` | `{ "name": "@fanfinity/sfere-sdk", "version": "0.1.0", "base": "analytics-next@1.84.3" }` |
-| `properties.sfere_dedup_id` | On `track` only: kept if your site set it (e.g. the order ID), otherwise the event's `messageId` | `"order_456"` |
+| `properties.sfere_dedup_id` | On `track` only: kept if your site set it, otherwise the event's `messageId`. Server-side destinations dedupe on `messageId`, so give browser pixels the `messageId` ([Deduplication](docs/INTEGRATION.md#deduplication)) | `"ajs-next-1727500000000-…"` |
 
 A landing `fbclid` becomes `context.clientIds.fbc` in Meta's `fb.1.<ms>.<fbclid>` format. The wire payload carries no `_metadata`, and no `integrations` unless you set some on the call.
 
@@ -139,7 +141,6 @@ sfere.track("purchase", {
   transaction_id: "order_456",
   value: 179.98,
   currency: "SAR",
-  sfere_dedup_id: "order_456",
   items: [{ item_id: "sku_123", item_name: "Jersey", price: 89.99, quantity: 2 }],
 });
 

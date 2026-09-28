@@ -13,11 +13,14 @@ const ALLOWED_KEYS = [
   "li_fat_id",
   "msclkid",
   "oppref",
+  "obref",
   "gclid",
   "wbraid",
   "gbraid",
   "twclid",
   "rdt_cid",
+  "clarity_uid",
+  "clarity_sid",
 ];
 
 function run(plugin = sfereEnrichment(), event?: Parameters<typeof fakeCtx>[0]) {
@@ -44,6 +47,34 @@ describe("plugin shape", () => {
   });
 });
 
+describe("context.traits from the identified user", () => {
+  const analytics = (traits: Record<string, unknown>) =>
+    ({ user: () => ({ traits: () => traits }) }) as never;
+
+  it("adds stored traits to non-identify events, under the caller's own", async () => {
+    const plugin = sfereEnrichment();
+    await plugin.load(fakeCtx(), analytics({ email: "a@b.test", name: "A" }));
+    const event = run(plugin, { context: { traits: { name: "Caller" } } } as never);
+    expect(event.context?.traits).toEqual({ email: "a@b.test", name: "Caller" });
+  });
+
+  it("leaves identify, empty traits and carryTraits: false alone", async () => {
+    const plugin = sfereEnrichment();
+    await plugin.load(fakeCtx(), analytics({ email: "a@b.test" }));
+    const ctx = fakeCtx({ type: "identify" } as never);
+    plugin.identify!(ctx);
+    expect(ctx.event.context?.traits).toBeUndefined();
+
+    const empty = sfereEnrichment();
+    await empty.load(fakeCtx(), analytics({}));
+    expect(run(empty).context?.traits).toBeUndefined();
+
+    const off = sfereEnrichment({ carryTraits: false });
+    await off.load(fakeCtx(), analytics({ email: "a@b.test" }));
+    expect(run(off).context?.traits).toBeUndefined();
+  });
+});
+
 describe("context.clientIds from cookies", () => {
   it("maps every pixel cookie to its clientIds key", () => {
     const cookies: Record<string, [string, string]> = {
@@ -57,10 +88,33 @@ describe("context.clientIds from cookies", () => {
       li_fat_id: ["li_fat_id", "LI"],
       _uetmsclkid: ["msclkid", "_uetMSCLK"],
       __oppref: ["oppref", "OPPREF"],
+      __obref: ["obref", "dea1ba69-aee0-4d72-bfcf-3b072fbb276c"],
     };
     for (const [cookie, [, value]] of Object.entries(cookies)) setCookie(cookie, value);
     const got = ids(run());
     for (const [key, value] of Object.values(cookies)) expect(got[key]).toBe(value);
+  });
+
+  it("reads the Clarity user and session IDs from the first field of _clck / _clsk", () => {
+    // Real cookie values captured from a live Clarity tag (fields separated by `^`).
+    setCookie("_clck", "1wokzhv^2^g9u^0^2462");
+    setCookie("_clsk", "1bp66jz^1790618888524^1^1^n.clarity.ms/collect");
+    const got = ids(run());
+    expect(got.clarity_uid).toBe("1wokzhv");
+    expect(got.clarity_sid).toBe("1bp66jz");
+  });
+
+  it("also accepts a pipe-delimited Clarity cookie", () => {
+    setCookie("_clck", "abc123|2|fpq|0|1234");
+    expect(ids(run()).clarity_uid).toBe("abc123");
+  });
+
+  it("omits the Clarity IDs when the cookies are absent or the first field is empty", () => {
+    expect(ids(run())).not.toHaveProperty("clarity_uid");
+    setCookie("_clck", "^2^g9u^0^2462");
+    const got = ids(run());
+    expect(got).not.toHaveProperty("clarity_uid");
+    expect(got).not.toHaveProperty("clarity_sid");
   });
 
   it("reads gclid from _gcl_aw as the text after the second dot", () => {
