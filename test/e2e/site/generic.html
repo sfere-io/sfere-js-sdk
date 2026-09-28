@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>generic</title>
+  </head>
+  <body>
+    <!--
+      The documented loader snippet (src/cdn/snippet.html), pointed at the local CDN emulation and
+      the mock ingestion host, with no automatic calls queued: specs drive window.sfere themselves
+      once it has loaded, for exact control over the events sent.
+    -->
+    <script>
+      !(function (w, d) {
+        if (w.sfere) return;
+        var q = (w.sfere = []);
+        ["track", "page", "identify", "group", "alias", "reset", "setConsent"].forEach(function (m) {
+          q[m] = function () {
+            q.push([m].concat([].slice.call(arguments)));
+            return q;
+          };
+        });
+        var s = d.createElement("script");
+        s.async = true;
+        s.src = "/sdk/v0.1/sfere.min.js";
+        s.setAttribute("data-write-key", "keyIdE2E:secretE2E");
+        s.setAttribute("data-host", "http://127.0.0.1:4311");
+        d.head.appendChild(s);
+      })(window, document);
+    </script>
+  </body>
+</html>

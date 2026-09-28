@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>esm harness</title>
+  </head>
+  <body>
+    <!--
+      Generic harness for the npm/ESM build (test/e2e/.tmp/esm-bundle, built by global-setup.ts
+      from the real dist/index.js). Most behavioral specs drive the SDK through this page rather
+      than a dedicated static page per scenario, configuring `SfereAnalytics.load` via query
+      params so each spec controls only what it needs to:
+
+        lang                    sets <html lang="..."> before load
+        writeKey, host          override the defaults below
+        sessionTimeoutMinutes   forwarded as a number (e.g. for a fast session-rotation test)
+        clickIdStorage          "session" | "local"
+        batching                "true" enables batching with its default size/timeout
+        disableClientPersistence "true" forces the dependency's in-memory mode
+
+      window.__sfere is the loaded instance; window.__sfereReady flips to true once load() has
+      returned (see waitForEsmReady in ../utils.ts).
+    -->
+    <script type="module">
+      import { SfereAnalytics } from "/esm/bundle";
+
+      const params = new URLSearchParams(location.search);
+
+      const lang = params.get("lang");
+      if (lang) document.documentElement.lang = lang;
+
+      const options = {
+        writeKey: params.get("writeKey") || "keyIdE2E:secretE2E",
+        host: params.get("host") || "http://127.0.0.1:4311",
+      };
+
+      const sessionTimeoutMinutes = params.get("sessionTimeoutMinutes");
+      if (sessionTimeoutMinutes) options.sessionTimeoutMinutes = Number(sessionTimeoutMinutes);
+
+      const clickIdStorage = params.get("clickIdStorage");
+      if (clickIdStorage === "session" || clickIdStorage === "local") {
+        options.clickIdStorage = clickIdStorage;
+      }
+
+      if (params.get("batching") === "true") options.batching = true;
+      if (params.get("disableClientPersistence") === "true") options.disableClientPersistence = true;
+
+      window.__sfere = SfereAnalytics.load(options);
+      window.__sfereReady = true;
+    </script>
+  </body>
+</html>

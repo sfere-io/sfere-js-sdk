@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+test-results
+playwright-report
+package-lock.json
+# Owned by other workstreams; formatted by their owners.
+.github
+.changeset
+docs
+infra
+test/e2e
+*.md
+src/cdn/snippet.html
+scripts/cdn-*

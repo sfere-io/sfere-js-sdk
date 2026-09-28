@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>sri</title>
+  </head>
+  <body>
+    <!--
+      Templated by mock-ingest.mjs: {{INTEGRITY}} is the sha384 hash computed at test time from the
+      dist/cdn/sfere.min.js actually on disk (real integrity for /sri.html, a one-character-flipped
+      wrong one for /sri-bad.html). {{SRC}} is always the CDN-emulation path.
+    -->
+    <script>
+      window.__sriError = false;
+    </script>
+    <script
+      src="{{SRC}}"
+      integrity="{{INTEGRITY}}"
+      crossorigin="anonymous"
+      onerror="window.__sriError = true"
+      data-write-key="keyIdE2E:secretE2E"
+      data-host="http://127.0.0.1:4311"
+    ></script>
+  </body>
+</html>

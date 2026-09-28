@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>batching</title>
+  </head>
+  <body>
+    <!-- The loader snippet with data-batching="true" (docs/INTEGRATION.md), queuing three calls
+         of three different types before the bundle loads, to exercise POST /v1/batch/b. -->
+    <script>
+      !(function (w, d) {
+        if (w.sfere) return;
+        var q = (w.sfere = []);
+        ["track", "page", "identify", "group", "alias", "reset", "setConsent"].forEach(function (m) {
+          q[m] = function () {
+            q.push([m].concat([].slice.call(arguments)));
+            return q;
+          };
+        });
+        var s = d.createElement("script");
+        s.async = true;
+        s.src = "/sdk/v0.1/sfere.min.js";
+        s.setAttribute("data-write-key", "keyIdE2E:secretE2E");
+        s.setAttribute("data-host", "http://127.0.0.1:4311");
+        s.setAttribute("data-batching", "true");
+        d.head.appendChild(s);
+      })(window, document);
+      window.sfere.identify("batch-user", { plan: "team" });
+      window.sfere.page("BatchPage");
+      window.sfere.track("batch_event", { n: 1 });
+    </script>
+  </body>
+</html>

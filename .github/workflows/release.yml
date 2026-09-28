@@ -1,0 +1,140 @@
+name: release
+
+# Push to main -> full CI gate, then Changesets decides what happens next:
+#   - pending changesets exist  -> open/update the "Version Packages" PR (no publish)
+#   - no pending changesets     -> that PR was just merged: publish to GitHub
+#                                  Packages, tag, cut a GitHub release with the
+#                                  CDN bundles attached, and deploy the CDN.
+# See docs/RELEASING.md for the developer-facing version of this flow.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Reuse the exact same gate a PR went through. A release that skipped this would
+  # mean main and the published package could diverge in quality.
+  ci:
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  version-or-publish:
+    needs: ci
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # push the Version PR branch / the release tag
+      pull-requests: write # open/update the Version Packages PR
+      packages: write # publish to GitHub Packages
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # changesets diffs against history to find pending changesets
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: "@fanfinity"
+      - run: npm ci
+
+      # changesets/action v2 (requires @changesets/cli v3, which package.json
+      # pins). `version-script` runs when there are pending changesets: bumps
+      # package.json, compiles CHANGELOG.md, and opens/updates the PR through the
+      # GitHub API with the default GITHUB_TOKEN. `publish-script` runs instead
+      # when there are none (i.e. that PR was just merged). Tagging and the
+      # GitHub release are this workflow's job, not the action's: the `release`
+      # script passes --no-git-tag, and `push-git-tags` / `create-github-releases`
+      # are off, so the canonical vX.Y.Z tag is created once, below, and the
+      # release (with the CDN bundles attached) is cut by release-artifacts.
+      # NODE_AUTH_TOKEN feeds the .npmrc actions/setup-node wrote for
+      # npm.pkg.github.com. Repository setting required: Actions > General >
+      # "Allow GitHub Actions to create and approve pull requests".
+      - name: Version Packages PR or publish
+        id: changesets
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          version-script: npm run version-packages
+          publish-script: npm run release
+          commit-message: "chore: version packages"
+          pr-title: "chore: version packages"
+          create-github-releases: false
+          push-git-tags: false
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Pushed with the GITHUB_TOKEN credentials actions/checkout persisted. A tag
+      # pushed by GITHUB_TOKEN never starts other workflows, which is fine: the
+      # CDN deploy is invoked below via workflow_call, not by a tag trigger.
+      - name: Tag the published version
+        id: tag
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          V="$(node -p 'require("./package.json").version')"
+          TAG="v$V"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          git tag "$TAG" HEAD
+          git push origin "$TAG"
+
+  release-artifacts:
+    needs: version-or-publish
+    if: needs.version-or-publish.outputs.published == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # create the GitHub release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: "v${{ needs.version-or-publish.outputs.version }}"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # Rebuild deterministically from the tag rather than reusing the `ci` job's
+      # artifact — the release assets must be traceably built from exactly the
+      # tagged commit, the same rule cdn-deploy.yml follows.
+      - run: npm run build
+      - run: npm run verify
+      - run: npm run cdn:manifest
+
+      - name: Prerelease?
+        id: kind
+        run: |
+          case "${{ needs.version-or-publish.outputs.version }}" in
+            *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: "v${{ needs.version-or-publish.outputs.version }}"
+          name: "v${{ needs.version-or-publish.outputs.version }}"
+          prerelease: ${{ steps.kind.outputs.prerelease }}
+          generate_release_notes: true
+          files: |
+            dist/cdn/sfere.min.js
+            dist/cdn/sfere.js
+            dist/cdn/manifest.json
+
+  # A called workflow can never hold more permissions than the calling job grants
+  # it, so the WIF `id-token: write` cdn-deploy.yml's deploy job needs must be
+  # granted here too.
+  cdn-deploy:
+    needs: [version-or-publish, release-artifacts]
+    if: needs.version-or-publish.outputs.published == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/cdn-deploy.yml
+    with:
+      version: "${{ needs.version-or-publish.outputs.version }}"

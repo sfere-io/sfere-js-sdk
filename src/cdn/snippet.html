@@ -1,0 +1,20 @@
+<!-- Sfere SDK loader. Replace YOUR_WRITE_KEY and YOUR_INGESTION_HOST. -->
+<script>
+  !(function (w, d) {
+    if (w.sfere) return;
+    var q = (w.sfere = []);
+    ["track", "page", "identify", "group", "alias", "reset", "setConsent"].forEach(function (m) {
+      q[m] = function () {
+        q.push([m].concat([].slice.call(arguments)));
+        return q;
+      };
+    });
+    var s = d.createElement("script");
+    s.async = true;
+    s.src = "https://cdn.sfere.io/sdk/v0.1/sfere.min.js";
+    s.setAttribute("data-write-key", "YOUR_WRITE_KEY");
+    s.setAttribute("data-host", "https://YOUR_INGESTION_HOST");
+    d.head.appendChild(s);
+    q.page();
+  })(window, document);
+</script>

@@ -1,0 +1,156 @@
+name: cdn-deploy
+
+# Deploys a tagged build's dist/cdn/ bundles to the CDN bucket (see
+# infra/cdn/README.md and docs/CDN-POLICY.md). Called by release.yml right after
+# a version publishes, or run by hand (workflow_dispatch) for a rollback / a
+# re-deploy of an already-published version.
+#
+# Deliberately green before the CDN infra exists: `check-config` reads the
+# repository Variables it needs and skips the deploy job cleanly (with a step
+# summary note, not a failure) when any of them isn't set yet. That keeps
+# release.yml passing end to end while infra/cdn/provision.sh is still unrun.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Bare semver to deploy, no leading 'v' (e.g. 0.1.0 or 0.2.0-next.0)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Bare semver to deploy, no leading 'v' (e.g. 0.1.0 or 0.2.0-next.0)"
+        required: true
+        type: string
+      alias_only:
+        description: "Rollback: only re-point the alias at this already-published version (skips the immutable upload, which would otherwise be refused by --if-generation-match=0)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cdn-deploy
+  cancel-in-progress: false
+
+jobs:
+  check-config:
+    runs-on: ubuntu-24.04
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Check required repository variables
+        id: check
+        run: |
+          missing=()
+          [ -n "${{ vars.WIF_PROVIDER }}" ] || missing+=("WIF_PROVIDER")
+          [ -n "${{ vars.CDN_DEPLOY_SA }}" ] || missing+=("CDN_DEPLOY_SA")
+          [ -n "${{ vars.GCP_PROJECT_ID }}" ] || missing+=("GCP_PROJECT_ID")
+          [ -n "${{ vars.CDN_BUCKET }}" ] || missing+=("CDN_BUCKET")
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### CDN deploy skipped"
+              echo "Missing repository variable(s): ${missing[*]}."
+              echo "See infra/cdn/README.md to provision the CDN and set them."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    needs: check-config
+    if: needs.check-config.outputs.configured == 'true'
+    runs-on: ubuntu-24.04
+    environment:
+      name: cdn-production
+      url: ${{ vars.CDN_BASE_URL }}
+    permissions:
+      contents: read
+      id-token: write # Workload Identity Federation
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: "v${{ inputs.version }}"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # Rebuilt here rather than fetched from the release, so the bytes deployed
+      # to the CDN are provably reproducible from the tagged source rather than a
+      # human-uploaded artifact.
+      - run: npm run build
+      - run: npm run verify
+      - run: npm run cdn:manifest
+
+      - name: Tag must match package.json version
+        run: |
+          PKG="$(node -p 'require("./package.json").version')"
+          if [ "$PKG" != "${{ inputs.version }}" ]; then
+            echo "::error::checked-out package.json version ($PKG) does not match the requested version (${{ inputs.version }})"
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud (WIF, keyless)
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.CDN_DEPLOY_SA }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      # `inputs.alias_only` only exists on workflow_dispatch; on workflow_call it is
+      # empty, which the comparison treats as false (a normal, full publish).
+      - name: Publish to the CDN bucket
+        run: |
+          if [ "${{ inputs.alias_only }}" = "true" ]; then
+            scripts/cdn-publish.sh "${{ inputs.version }}" --alias-only
+          else
+            scripts/cdn-publish.sh "${{ inputs.version }}"
+          fi
+        env:
+          CDN_BUCKET: ${{ vars.CDN_BUCKET }}
+
+      - name: Smoke-test the public URL
+        if: vars.CDN_BASE_URL != ''
+        env:
+          CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
+        run: |
+          set -euo pipefail
+          URL="${CDN_BASE_URL%/}/sdk/v${{ inputs.version }}/sfere.min.js"
+          EXPECTED="$(node -p 'JSON.parse(require("fs").readFileSync("dist/cdn/manifest.json","utf8")).files.find(f=>f.path.endsWith("sfere.min.js")).sha384')"
+
+          echo "Fetching $URL"
+          curl -fsS -D headers.txt -o downloaded.js "$URL"
+
+          ACTUAL="sha384-$(openssl dgst -sha384 -binary downloaded.js | openssl base64 -A)"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::SRI mismatch for $URL: manifest says $EXPECTED, downloaded file hashes to $ACTUAL"
+            exit 1
+          fi
+          echo "SRI hash matches manifest.json: $EXPECTED"
+
+          CACHE_CONTROL="$(grep -i '^cache-control:' headers.txt | tr -d '\r' | cut -d' ' -f2-)"
+          CONTENT_TYPE="$(grep -i '^content-type:' headers.txt | tr -d '\r' | cut -d' ' -f2-)"
+          echo "Cache-Control: $CACHE_CONTROL"
+          echo "Content-Type: $CONTENT_TYPE"
+
+          case "$CACHE_CONTROL" in
+            *immutable*) : ;;
+            *) echo "::error::expected an immutable Cache-Control on $URL, got: $CACHE_CONTROL"; exit 1 ;;
+          esac
+          case "$CONTENT_TYPE" in
+            application/javascript*) : ;;
+            *) echo "::error::expected a javascript Content-Type on $URL, got: $CONTENT_TYPE"; exit 1 ;;
+          esac
+
+          {
+            echo "### CDN smoke test passed"
+            echo "- URL: $URL"
+            echo "- SRI: \`$EXPECTED\`"
+            echo "- Cache-Control: \`$CACHE_CONTROL\`"
+          } >> "$GITHUB_STEP_SUMMARY"
