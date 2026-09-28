@@ -32,7 +32,7 @@ jobs:
       pull-requests: write # open/update the Version Packages PR
       packages: write # publish to GitHub Packages
     outputs:
-      published: ${{ steps.changesets.outputs.published }}
+      published: ${{ steps.tag.outputs.published }}
       version: ${{ steps.tag.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -71,18 +71,39 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Decide "published" ourselves instead of trusting the action's output: with
+      # `--no-git-tag` the Changesets CLI emits no release events, so the action
+      # reports published=false even after a successful publish (seen on the
+      # first 0.1.0 release). Rule: when no changesets are pending, the version in
+      # package.json exists on the registry, and its vX.Y.Z tag does not exist
+      # yet, this run released it. That also recovers a run whose later jobs
+      # failed: the next push to main tags and deploys the missed version.
       # Pushed with the GITHUB_TOKEN credentials actions/checkout persisted. A tag
       # pushed by GITHUB_TOKEN never starts other workflows, which is fine: the
       # CDN deploy is invoked below via workflow_call, not by a tag trigger.
       - name: Tag the published version
         id: tag
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.has-changesets == 'false'
         run: |
           V="$(node -p 'require("./package.json").version')"
+          NAME="$(node -p 'require("./package.json").name')"
           TAG="v$V"
           echo "version=$V" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "$TAG already tagged; nothing to release." >> "$GITHUB_STEP_SUMMARY"
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! npm view "$NAME@$V" version > /dev/null 2>&1; then
+            echo "::error::$NAME@$V is not on the registry after the publish step."
+            exit 1
+          fi
           git tag "$TAG" HEAD
           git push origin "$TAG"
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "Released $NAME@$V as $TAG." >> "$GITHUB_STEP_SUMMARY"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release-artifacts:
     needs: version-or-publish
