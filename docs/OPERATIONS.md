@@ -79,5 +79,5 @@ If you skip this, the second deploy on that line fails with a 403 on the alias u
 
 - **First-event cookie race:** on the landing page, `_fbp` / `_ttp` may not exist yet. It needs a spike on a real site with live pixels ([ARCHITECTURE.md](ARCHITECTURE.md)).
 - **Server-side destinations** (a separate repo) must accept GA4 names and `items[]`, and normalise phone numbers, before conversions from this SDK map fully. Tracked as issues #12 and #13 in the destinations repository.
-- **Deduplication:** the SDK sets `properties.sfere_dedup_id` (defaults to `messageId`). The server-side destinations currently use `messageId` as the event id; they should prefer `sfere_dedup_id`.
+- **Deduplication:** the server-side destinations use the event's `messageId` as the event id, so pixels must be given the `messageId` from `track()`'s result (verified live on 2026-09-28 across 7 platforms). `properties.sfere_dedup_id` is not read server-side.
 - **Bundle size** is 45.6 KB gzip against a 49.5 KB budget. About 40 KB minified of analytics-next code can never run with our inline settings. Trimming it would mean stubbing modules, which the "use analytics-next unmodified" decision rules out for now.

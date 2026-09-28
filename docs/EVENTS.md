@@ -9,7 +9,7 @@ The Sfere SDK uses the GA4 e-commerce vocabulary for event and property names, s
 - **Currency**: ISO 4217 code (`SAR`, `USD`, `AED`) — required by GA4 whenever `value` is set.
 - **Value**: a number, not a string.
 - **Items**: `items[]`, one object per product line, using the fields below.
-- **`sfere_dedup_id`**: on any `track` event you may set this to your own key (e.g. the order ID) so browser pixels and server destinations deduplicate on the same value; when unset the SDK fills in the event's `messageId`. See [INTEGRATION.md](INTEGRATION.md#deduplication).
+- **`sfere_dedup_id`**: set on every `track` (your own value, or the event's `messageId`). The server-side destinations dedupe on the event's `messageId`, so give browser pixels the `messageId`; see [INTEGRATION.md](INTEGRATION.md#deduplication).
 
 ## Core events
 

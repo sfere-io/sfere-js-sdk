@@ -11,6 +11,12 @@ export interface SfereEnrichmentOptions {
   clickIdStorage?: StorageKind;
   /** Initial consent categories, sent as `context.consent.categoryPreferences`. */
   consent?: ConsentPreferences;
+  /**
+   * Copy the visitor's identify traits into `context.traits` on every later event. Default true.
+   * Server-side destinations match on the traits of the event they receive (email, phone), and a
+   * `track` does not otherwise carry them.
+   */
+  carryTraits?: boolean;
 }
 
 export interface SfereEnrichmentPlugin extends Plugin {
@@ -33,6 +39,8 @@ const COOKIES: Record<string, string> = {
   li_fat_id: "li_fat_id",
   _uetmsclkid: "msclkid",
   __oppref: "oppref",
+  // OpenAI pixel browser id; the OpenAI CAPI sends it as `user.obref`.
+  __obref: "obref",
 };
 
 /** URL parameter -> `context.clientIds` key. `fbclid` is handled separately (it becomes `fbc`). */
@@ -74,6 +82,14 @@ function gclidFromCookie(): string | undefined {
 }
 
 /**
+ * Clarity's `_clck` (user) / `_clsk` (session): the ID is the first field. Current Clarity separates
+ * fields with `^` (`1wokzhv^2^g9u^0^2462`, stored URL-encoded as `%5E`); `|` is also accepted.
+ */
+function clarityId(cookie: string): string | undefined {
+  return readCookie(cookie)?.split(/[\^|]/)[0] || undefined;
+}
+
+/**
  * The payload must not carry `_metadata`, nor `integrations` unless the caller set some.
  *
  * analytics-next 1.84.3 has no hook between building the wire body and sending it:
@@ -105,6 +121,9 @@ function wireToJSON(this: Record<string, unknown>): Record<string, unknown> {
 export function sfereEnrichment(options: SfereEnrichmentOptions = {}): SfereEnrichmentPlugin {
   const idleMs = (options.sessionTimeoutMinutes ?? 30) * 60_000;
   const clickStorage: StorageKind = options.clickIdStorage ?? "session";
+  const carryTraits = options.carryTraits ?? true;
+  /** The analytics instance, handed to `load()`; its user holds the identify traits. */
+  let userTraits: (() => Record<string, unknown> | undefined) | undefined;
   let consent: ConsentPreferences | undefined = options.consent
     ? { ...options.consent }
     : undefined;
@@ -157,6 +176,10 @@ export function sfereEnrichment(options: SfereEnrichmentOptions = {}): SfereEnri
     }
     const gclid = gclidFromCookie();
     if (gclid) ids.gclid = gclid;
+    const clarityUid = clarityId("_clck");
+    if (clarityUid) ids.clarity_uid = clarityUid;
+    const claritySid = clarityId("_clsk");
+    if (claritySid) ids.clarity_sid = claritySid;
 
     for (const [key, value] of Object.entries(clicks.ids)) {
       if (key === "fbc" && ids.fbc) {
@@ -189,6 +212,15 @@ export function sfereEnrichment(options: SfereEnrichmentOptions = {}): SfereEnri
     const clicks = sessionClicks();
 
     context.clientIds = { ...clientIds(clicks), ...(context.clientIds as object | undefined) };
+
+    // Identify carries its traits at the top level already; every other event gets the stored ones,
+    // under any the caller put on the event.
+    if (carryTraits && event.type !== "identify" && userTraits) {
+      const traits = userTraits();
+      if (traits && Object.keys(traits).length > 0) {
+        context.traits = { ...traits, ...(context.traits as object | undefined) };
+      }
+    }
 
     if (Object.keys(clicks.campaign).length > 0) {
       context.campaign = { ...(context.campaign as object | undefined), ...clicks.campaign };
@@ -227,7 +259,16 @@ export function sfereEnrichment(options: SfereEnrichmentOptions = {}): SfereEnri
     type: "enrichment",
     version,
     isLoaded: () => true,
-    load: () => Promise.resolve(),
+    load: (_ctx, analytics) => {
+      userTraits = () => {
+        try {
+          return analytics?.user?.().traits?.() as Record<string, unknown> | undefined;
+        } catch {
+          return undefined;
+        }
+      };
+      return Promise.resolve();
+    },
     track: enrich,
     page: enrich,
     identify: enrich,

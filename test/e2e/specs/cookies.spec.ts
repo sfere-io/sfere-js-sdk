@@ -25,6 +25,8 @@ test("ad-platform cookies map to context.clientIds keys", async ({ page, context
     { name: "_epik", value: "EPIK1", domain: "127.0.0.1", path: "/" },
     { name: "_scclid", value: "SCCLID1", domain: "127.0.0.1", path: "/" },
     { name: "ttclid", value: "TTCLID1", domain: "127.0.0.1", path: "/" },
+    { name: "_clck", value: "CLUID1%5E2%5Eg9u%5E0%5E2462", domain: "127.0.0.1", path: "/" },
+    { name: "_clsk", value: "CLSID1%5E1790618888524%5E1%5E1%5En.clarity.ms%2Fcollect", domain: "127.0.0.1", path: "/" },
   ]);
 
   await page.goto(esmUrl());
@@ -46,6 +48,9 @@ test("ad-platform cookies map to context.clientIds keys", async ({ page, context
   expect(clientIds.epik).toBe("EPIK1");
   expect(clientIds.scclid).toBe("SCCLID1");
   expect(clientIds.ttclid).toBe("TTCLID1");
+  // Clarity's `_clck` / `_clsk` are `^`-delimited (stored as %5E): the ID is the first field.
+  expect(clientIds.clarity_uid).toBe("CLUID1");
+  expect(clientIds.clarity_sid).toBe("CLSID1");
 });
 
 test("_fbc cookie precedence vs a landing fbclid: whichever click is newer wins", async ({

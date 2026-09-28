@@ -11,7 +11,7 @@ _Internal. Written 2026-09-28 from the research in `../sfere-sdk-research/` (`sd
 
 ## Decisions this code must respect (founder, 2026-09-28)
 
-1. **Payload shape:** identifiers in `context.clientIds` with exactly these keys: `fbp, fbc, ttp, ttclid, scid, scclid, epik, li_fat_id, msclkid, oppref, gclid, wbraid, gbraid, twclid, rdt_cid`. Traits go where analytics-next puts them. No root-level `externalIds`.
+1. **Payload shape:** identifiers in `context.clientIds` with exactly these keys: `fbp, fbc, ttp, ttclid, scid, scclid, epik, li_fat_id, msclkid, oppref, obref, gclid, wbraid, gbraid, twclid, rdt_cid, clarity_uid, clarity_sid`. Traits go where analytics-next puts them. No root-level `externalIds`. (`clarity_uid` / `clarity_sid` added 2026-09-28, user: Microsoft Clarity's IDs, for joining profiles to Clarity recordings. `obref` added the same day: the OpenAI pixel's browser id, which the OpenAI CAPI sends as `user.obref`.)
 2. **No hashing, no phone formatting in the SDK.** Server-side destinations hash and normalise.
 3. **Canonical e-commerce vocabulary: GA4 names and `properties.items[]`** (`purchase`, `add_to_cart`, `begin_checkout`, `view_item`, …). The SDK passes event names through untouched; it only documents and types the GA4 vocabulary.
 4. **Transport:**
@@ -56,14 +56,14 @@ Port of `../sfere-sdk-research/lab/sfere-enrichment.js`, which was proven on the
 
 | Field | Source |
 |---|---|
-| `context.clientIds` from cookies | `_fbp→fbp, _fbc→fbc, _ttp→ttp, ttclid, _scid→scid, _scclid→scclid, _epik→epik, li_fat_id, _uetmsclkid→msclkid, __oppref→oppref`, and `_gcl_aw` / `_gcl_dc → gclid` (text after the second dot) |
+| `context.clientIds` from cookies | `_fbp→fbp, _fbc→fbc, _ttp→ttp, ttclid, _scid→scid, _scclid→scclid, _epik→epik, li_fat_id, _uetmsclkid→msclkid, __oppref→oppref`, `_gcl_aw` / `_gcl_dc → gclid` (text after the second dot), and `_clck → clarity_uid`, `_clsk → clarity_sid` (first field, before the first `^`) |
 | `context.clientIds` from URL, persisted per session | `gclid, wbraid, gbraid, ttclid, ScCid→scclid, twclid, epik, msclkid, li_fat_id, oppref, rdt_cid`; **`fbclid → fbc = fb.1.<ms>.<fbclid>`**. A newer URL click replaces an older value. A pixel-set `_fbc` cookie wins, unless the URL carried a newer `fbclid` |
 | `context.campaign.gad_source`, `context.campaign.gad_campaignid` | URL `gad_source` / `gad_campaignid`, persisted like click IDs. Merged into analytics-next's own UTM `campaign` object, never replacing it |
 | `context.session` | `{ id }`, inactivity rotation (default 30 min), in localStorage `sfere_session` |
 | `context.consent` | `{ categoryPreferences: {…} }` from `setConsent` or the `consent` option; omitted when unset |
 | `context.page.lang` | `document.documentElement.lang`, when set (`locale` reflects the browser, not the page) |
 | `context.library` | `{ name: "@fanfinity/sfere-sdk", version: <sdk version>, base: "analytics-next@<its version>" }`, replacing the base library's own stamp (amended 2026-09-28, review) |
-| `properties.sfere_dedup_id` | on `track` only: kept if the site set it (e.g. the order id); otherwise set to the event's `messageId`. Browser pixels and server destinations share this one key |
+| `properties.sfere_dedup_id` | on `track` only: kept if the site set it (e.g. the order id); otherwise set to the event's `messageId`. The server-side destinations dedupe on `messageId`, not on this property, so pixels must be given the `messageId` (see INTEGRATION.md#deduplication) |
 
 - **Warehouse width:** the payload must not carry `_metadata`, and it must not carry `integrations` unless the caller set it. Find the analytics-next setting or plugin point that achieves this (read `node_modules/@segment/analytics-next`, e.g. `addBundledMetadata` / the segmentio `normalize`), prove it in a unit test, and record where it happens.
 - **Robustness:** all storage access is wrapped in try/catch; the SDK must work when cookies or storage are blocked. There must be no errors on the server side (SSR import), so guard `window` / `document`.
