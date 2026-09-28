@@ -1,0 +1,12 @@
+# @fanfinity/sfere-sdk
+
+## 0.2.0
+
+### Minor Changes
+
+- 32a32be: Events after `identify` now carry the visitor's traits in `context.traits`, so server-side destinations can match leads on email and phone. Opt out with `carryTraits: false`.
+- 32a32be: `context.clientIds` now carries Microsoft Clarity's IDs: `clarity_uid` (first `^`-separated field of the `_clck` cookie) and `clarity_sid` (first field of `_clsk`). It also carries `obref` from the OpenAI pixel's `__obref` cookie.
+
+### Patch Changes
+
+- 32a32be: Docs: deduplication now describes what the server-side destinations actually do. They dedupe on the event's `messageId`, so browser pixels must be given the `messageId` from `track()`'s result, and `sfere_dedup_id` is not read server-side.
