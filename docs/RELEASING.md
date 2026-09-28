@@ -58,9 +58,9 @@ Two things worth knowing about that PR:
   token, so the Version Packages PR itself shows **no CI checks**. Nothing is
   lost: merging it pushes to `main`, and `release.yml` runs the full `ci.yml`
   gate before it publishes anything.
-- The repository setting **Actions → General → "Allow GitHub Actions to
-  create and approve pull requests"** must be on, or the action cannot open
-  it.
+- The setting **"Allow GitHub Actions to create and approve pull requests"**
+  must be on at both the organisation level and the repository level (Actions →
+  General), or the action cannot open it. Both are on as of 2026-09-28.
 
 ### Starting a new alias line (new minor while 0.x, new major after 1.0)
 
@@ -125,10 +125,12 @@ what's actually being served:
   without touching anything else:
 
   ```sh
-  gh workflow run cdn-deploy.yml -f version=<last-known-good, e.g. 1.4.1> -f alias_only=true
+  gh workflow run cdn-deploy.yml --ref main -f version=<last-known-good, e.g. 1.4.1> -f alias_only=true
   ```
 
-  This runs `cdn-deploy.yml` via `workflow_dispatch`, which rebuilds that
+  The version is **bare** (`1.4.1`, not `v1.4.1`); a leading `v` makes the
+  checkout look for tag `vv1.4.1` and fail. This runs `cdn-deploy.yml` via
+  `workflow_dispatch`, which rebuilds that
   tag deterministically and runs `scripts/cdn-publish.sh <version>
   --alias-only` — see `CDN-POLICY.md` "Rollback" for why `--alias-only`
   matters (it never touches the bad version's immutable files, and never
@@ -146,9 +148,9 @@ what's actually being served:
 | `GCP_PROJECT_ID` | repo variable | `cdn-deploy.yml` | `koratona-9791a`. |
 | `CDN_BUCKET` | repo variable | `cdn-deploy.yml` | Bare bucket name, no `gs://`. |
 | `CDN_BASE_URL` | repo variable | `cdn-deploy.yml` | `https://cdn.sfere.io`. Optional — the post-deploy smoke test is skipped (not failed) when unset. |
-| `cdn-production` | GitHub Environment | `cdn-deploy.yml` (`deploy` job) | Required reviewer gates every CDN deploy, including rollbacks. |
+| `cdn-production` | GitHub Environment | `cdn-deploy.yml` (`deploy` job) | Deployments only from `main`. No required reviewer (not available on the organisation's plan for private repos), see `CDN-POLICY.md` "Who approves". |
 | `GITHUB_TOKEN` | built-in | `release.yml` | Used as `NODE_AUTH_TOKEN` to publish to GitHub Packages, by `changesets/action` (its default token) for the Version Packages PR, and for the tag push / GitHub release. No manual setup. |
 
-`WIF_PROVIDER`, `CDN_DEPLOY_SA`, `GCP_PROJECT_ID` and `CDN_BUCKET` not being
-set yet is expected before `../infra/cdn/provision.sh` has been run — see
-that file's README for what it prints once it has.
+All of the above are set on `fanfinity/sfere-sdk` (2026-09-28), and the CDN
+infrastructure is provisioned. Current values and resource names are in
+`OPERATIONS.md`.

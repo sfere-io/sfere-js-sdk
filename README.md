@@ -2,6 +2,8 @@
 
 Collect first-party fan engagement events in real time. The Sfere SDK enriches every event with ad platform click IDs and identifiers from your site, then sends them to the Sfere ingestion endpoint for activation across sponsorship and monetization channels.
 
+> **Status:** 0.1.0 is live — `https://cdn.sfere.io/sdk/v0.1/sfere.min.js` and `@fanfinity/sfere-sdk@0.1.0` on GitHub Packages. Maintainers: start with [docs/OPERATIONS.md](docs/OPERATIONS.md).
+
 ## Quick start
 
 ### Script tag (CDN)
@@ -179,3 +181,5 @@ This SDK uses [@segment/analytics-next](https://github.com/segmentio/analytics-n
 - [CDN policy](docs/CDN-POLICY.md) — versioning, SRI, aliases, rollback
 - [Security](SECURITY.md) — vulnerability reporting, what is stored, what is sent
 - [Contributing](CONTRIBUTING.md) — branch conventions, testing, changesets
+- [Operations](docs/OPERATIONS.md) — maintainers: what is live, releasing, CDN deploys and rollback, cloud resources, open items
+- [Releasing](docs/RELEASING.md) and [CI](docs/CI.md) — the release pipeline in detail

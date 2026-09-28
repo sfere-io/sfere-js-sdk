@@ -158,17 +158,15 @@ alias *back to* on a track that a prerelease never joined.
 Cloud CDN and the underlying GCS bucket carry Google's standard multi-region
 durability and edge-cache availability characteristics. **No specific uptime
 or latency SLA is committed here** — none has been benchmarked or contracted
-for this deployment, and none should be quoted to a client until it has. If
-you need a number for a conversation, it's a benchmark or an illustrative
-figure at best, tiered accordingly (see `sales/clients/bein/deck-fact-check.md`
-in the company root for how that tiering works) — never a fact about this
-infrastructure.
+for this deployment, and none should be quoted to a client until it has.
 
 ## Who approves production CDN deploys
 
 `.github/workflows/cdn-deploy.yml`'s `deploy` job runs in the GitHub
-Environment `cdn-production`, which carries a required reviewer. Whoever is
-configured as that reviewer (Settings → Environments → `cdn-production` on
-the repo) approves every deploy before it runs — including rollbacks, since
-those go through the same workflow. See `RELEASING.md`'s variables/
-environments table for what else that environment needs configured.
+Environment `cdn-production`, which only accepts deployments from `main`.
+It has **no required reviewer**: the organisation's GitHub plan does not offer
+required reviewers on private repositories. In practice the gate is merging
+to `main`. A normal release deploys only when a maintainer merges the Version
+Packages PR, and a manual deploy or rollback needs someone with write access
+to dispatch the workflow on `main`. If the plan changes, add a reviewer under
+Settings → Environments → `cdn-production`; no workflow change is needed.

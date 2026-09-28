@@ -2,7 +2,8 @@
 
 What serves `https://cdn.sfere.io/sdk/...`. Provisioned by `provision.sh`
 (idempotent, **not run by CI** — a human with the right IAM in `koratona-9791a`
-runs it, once, by hand). See `../../docs/CDN-POLICY.md` for the URL scheme,
+runs it, once, by hand). **Provisioned on 2026-09-28**; live resource names and
+the IP are in `../../docs/OPERATIONS.md`. See `../../docs/CDN-POLICY.md` for the URL scheme,
 caching contract and rollback procedure this infra exists to serve, and
 `../../docs/RELEASING.md` for how `cdn-deploy.yml` uses it after provisioning.
 
@@ -116,11 +117,12 @@ path can do.
 
 ## DNS
 
-**`cdn.sfere.io` does not resolve today.** Once `provision.sh` has run, it
-prints the static IP; create:
+**Done (2026-09-28):** `A cdn.sfere.io -> 136.69.38.89` (TTL 300) in the Cloud
+DNS zone `sfereio` of `koratona-9791a`, and the managed certificate is ACTIVE.
+For a fresh environment, `provision.sh` prints the static IP; create the record with:
 
 ```
-A   cdn.sfere.io   ->   <the printed IP>
+gcloud dns record-sets create cdn.sfere.io. --zone=sfereio --type=A --ttl=300 --rrdatas=<the printed IP>
 ```
 
 The Google-managed certificate only issues after that record resolves and
@@ -133,9 +135,9 @@ the gap between provisioning and DNS propagation, not a misconfiguration.
 `provision.sh`'s final output lines are the exact values to set as repository
 Variables on `fanfinity/sfere-sdk` (see `../../docs/RELEASING.md`'s table):
 `WIF_PROVIDER`, `CDN_DEPLOY_SA`, `GCP_PROJECT_ID`, `CDN_BUCKET`, and
-`CDN_BASE_URL`. Until they're set, `.github/workflows/cdn-deploy.yml` skips
-its deploy job cleanly (step-summary note, not a failure) — the release
-pipeline stays green before this infra exists.
+`CDN_BASE_URL`. They are set on `fanfinity/sfere-sdk`. In a fork or a new
+environment without them, `.github/workflows/cdn-deploy.yml` skips its deploy
+job cleanly (step-summary note, not a failure).
 
 ## Re-running
 
@@ -144,3 +146,13 @@ exists" and moves on. Re-run it after editing `cors.json` or `lifecycle.json`
 — the `buckets update` calls apply the current file's contents each time, so
 that part is not merely idempotent but actively syncs config changes; the
 `create` calls for already-existing resources are true no-ops.
+
+### Notes from the first real run (2026-09-28)
+
+- **New custom roles take up to a minute to become usable on the bucket.**
+  The binding step fails with "Role ... does not exist in the resource's
+  hierarchy" until then. `provision.sh` retries this for about 2 minutes.
+- **The WIF provider only accepts repos owned by `fanfinity`**
+  (`attributeCondition: assertion.repository_owner == 'fanfinity'`). The deploy
+  service account is additionally bound to `fanfinity/sfere-sdk` alone. A fork
+  or a repo under another owner cannot deploy.
