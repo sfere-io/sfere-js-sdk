@@ -77,7 +77,6 @@ If you skip this, the second deploy on that line fails with a 403 on the alias u
 
 ## Open items
 
-- `SECURITY.md` names `security@sfere.io`; confirm the mailbox exists and is monitored.
 - **First-event cookie race:** on the landing page, `_fbp` / `_ttp` may not exist yet. It needs a spike on a real site with live pixels ([ARCHITECTURE.md](ARCHITECTURE.md)).
 - **Server-side destinations** (a separate repo) must accept GA4 names and `items[]`, and normalise phone numbers, before conversions from this SDK map fully. Tracked as issues #12 and #13 in the destinations repository.
 - **Deduplication:** the SDK sets `properties.sfere_dedup_id` (defaults to `messageId`). The server-side destinations currently use `messageId` as the event id; they should prefer `sfere_dedup_id`.

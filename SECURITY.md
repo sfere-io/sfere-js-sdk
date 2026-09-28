@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-If you discover a security vulnerability in the Sfere SDK, please email **security@sfere.io** to report it. Mark your email subject as "Security Vulnerability Report" and include:
+If you discover a security vulnerability in the Sfere SDK, please email **support@sfere.io** to report it. Mark your email subject as "Security Vulnerability Report" and include:
 
 - A description of the vulnerability
 - Steps to reproduce it
@@ -10,8 +10,6 @@ If you discover a security vulnerability in the Sfere SDK, please email **securi
 - Any workarounds you've found
 
 Do not disclose the vulnerability publicly until we've released a fix.
-
-TODO: Confirm that security@sfere.io exists and is monitored.
 
 ## Supported versions
 
