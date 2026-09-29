@@ -56,7 +56,7 @@ const PROBE_KEY = "sfere_probe";
  * (rather than silently no-op) in sandboxed iframes, opaque origins and some hardened privacy
  * modes; the underlying analytics library has a few unguarded accesses on those paths, so
  * `load()` switches it to in-memory persistence when either probe fails. Leaves nothing behind:
- * the storage key is removed and the probe cookie is written already expired.
+ * the storage key is removed and the probe cookie is written with an expiry date in the past.
  */
 export function probePersistence(): PersistenceProbe {
   if (!hasDom()) return { storage: false, cookies: false };
@@ -78,7 +78,9 @@ function storageWorks(): boolean {
 function cookiesWork(): boolean {
   try {
     void document.cookie;
-    document.cookie = `${PROBE_KEY}=; max-age=0; path=/`;
+    // An expiry date in the past deletes the cookie in every implementation; `max-age=0` left it
+    // readable in some DOM implementations (happy-dom: 2,976 of 3,000 immediate reads).
+    document.cookie = `${PROBE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
     return true;
   } catch {
     return false;
