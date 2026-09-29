@@ -1,5 +1,12 @@
 import type { Context, Plugin, SegmentEvent } from "@segment/analytics-next";
 import { currentSearch, readCookie, readJSON, writeJSON, type StorageKind } from "../storage";
+import {
+  CAMPAIGN_PARAMS,
+  URL_CLICK_IDS,
+  clientIdsFromCookies,
+  fbcFromFbclid,
+  fbcTime,
+} from "@fanfinity/sfere-shared";
 import { baseLibrary, libraryName, version } from "../version";
 
 export type ConsentPreferences = Record<string, boolean>;
@@ -27,39 +34,6 @@ export interface SfereEnrichmentPlugin extends Plugin {
 const SESSION_KEY = "sfere_session";
 const CLICK_KEY = "sfere_click_ids";
 
-/** Cookie name -> `context.clientIds` key. */
-const COOKIES: Record<string, string> = {
-  _fbp: "fbp",
-  _fbc: "fbc",
-  _ttp: "ttp",
-  ttclid: "ttclid",
-  _scid: "scid",
-  _scclid: "scclid",
-  _epik: "epik",
-  li_fat_id: "li_fat_id",
-  _uetmsclkid: "msclkid",
-  __oppref: "oppref",
-  // OpenAI pixel browser id; the OpenAI CAPI sends it as `user.obref`.
-  __obref: "obref",
-};
-
-/** URL parameter -> `context.clientIds` key. `fbclid` is handled separately (it becomes `fbc`). */
-const PARAMS: Record<string, string> = {
-  gclid: "gclid",
-  wbraid: "wbraid",
-  gbraid: "gbraid",
-  ttclid: "ttclid",
-  ScCid: "scclid",
-  twclid: "twclid",
-  epik: "epik",
-  msclkid: "msclkid",
-  li_fat_id: "li_fat_id",
-  oppref: "oppref",
-  rdt_cid: "rdt_cid",
-};
-
-const CAMPAIGN_PARAMS = ["gad_source", "gad_campaignid"] as const;
-
 interface StoredClicks {
   ids: Record<string, string>;
   fbclid?: string;
@@ -69,24 +43,6 @@ interface StoredClicks {
 interface StoredSession {
   id: number;
   last: number;
-}
-
-/** Creation time (ms) inside an fbc value `fb.<subdomainIndex>.<creationTime>.<fbclid>`. */
-const fbcTime = (fbc: string): number => Number(fbc.split(".")[2]) || 0;
-
-/** `_gcl_aw` / `_gcl_dc` look like `GCL.<ts>.<gclid>`: the gclid is everything after the 2nd dot. */
-function gclidFromCookie(): string | undefined {
-  const value = readCookie("_gcl_aw") ?? readCookie("_gcl_dc");
-  const parts = value?.split(".") ?? [];
-  return parts.length >= 3 ? parts.slice(2).join(".") : undefined;
-}
-
-/**
- * Clarity's `_clck` (user) / `_clsk` (session): the ID is the first field. Current Clarity separates
- * fields with `^` (`1wokzhv^2^g9u^0^2462`, stored URL-encoded as `%5E`); `|` is also accepted.
- */
-function clarityId(cookie: string): string | undefined {
-  return readCookie(cookie)?.split(/[\^|]/)[0] || undefined;
 }
 
 /**
@@ -142,7 +98,7 @@ export function sfereEnrichment(options: SfereEnrichmentOptions = {}): SfereEnri
     };
     const query = new URLSearchParams(currentSearch());
     let changed = false;
-    for (const [param, key] of Object.entries(PARAMS)) {
+    for (const [param, key] of Object.entries(URL_CLICK_IDS)) {
       const value = query.get(param);
       if (value && clicks.ids[key] !== value) {
         clicks.ids[key] = value;
@@ -153,7 +109,7 @@ export function sfereEnrichment(options: SfereEnrichmentOptions = {}): SfereEnri
     if (fbclid && clicks.fbclid !== fbclid) {
       // Meta's documented format: fb.<subdomainIndex>.<creationTime>.<fbclid>
       clicks.fbclid = fbclid;
-      clicks.ids.fbc = `fb.1.${Date.now()}.${fbclid}`;
+      clicks.ids.fbc = fbcFromFbclid(fbclid, Date.now());
       changed = true;
     }
     for (const param of CAMPAIGN_PARAMS) {
@@ -169,17 +125,7 @@ export function sfereEnrichment(options: SfereEnrichmentOptions = {}): SfereEnri
   }
 
   function clientIds(clicks: StoredClicks): Record<string, string> {
-    const ids: Record<string, string> = {};
-    for (const [cookie, key] of Object.entries(COOKIES)) {
-      const value = readCookie(cookie);
-      if (value) ids[key] = value;
-    }
-    const gclid = gclidFromCookie();
-    if (gclid) ids.gclid = gclid;
-    const clarityUid = clarityId("_clck");
-    if (clarityUid) ids.clarity_uid = clarityUid;
-    const claritySid = clarityId("_clsk");
-    if (claritySid) ids.clarity_sid = claritySid;
+    const ids = clientIdsFromCookies(readCookie);
 
     for (const [key, value] of Object.entries(clicks.ids)) {
       if (key === "fbc" && ids.fbc) {

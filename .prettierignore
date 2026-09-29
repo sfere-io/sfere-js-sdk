@@ -9,7 +9,7 @@ package-lock.json
 .changeset
 docs
 infra
-test/e2e
+packages/*/test/e2e
 *.md
-src/cdn/snippet.html
-scripts/cdn-*
+packages/browser/src/cdn/snippet.html
+packages/browser/scripts/cdn-*

@@ -40,15 +40,19 @@ reminder, not an automated gate.
      PR: `package.json`'s version bump, a compiled `CHANGELOG.md` entry, and
      the `.changeset/*.md` files consumed. Nothing is published yet.
    - **No pending changesets** (this push *is* that PR's merge) → it
-     publishes `@fanfinity/sfere-sdk` to GitHub Packages, at the version
-     `package.json` now has.
-3. On a successful publish: a `vX.Y.Z` git tag is created and pushed, dist is
+     publishes every public workspace package whose `package.json` version is
+     not yet on GitHub Packages (`@fanfinity/sfere-sdk`, `@fanfinity/sfere-node`).
+3. Each package published gets a tag: `vX.Y.Z` for the browser SDK,
+   `@fanfinity/sfere-node@X.Y.Z` for the Node SDK. Only a browser release
+   continues below; a Node-only release stops at the tag.
+4. On a successful browser publish: dist is
    rebuilt from that tag (deterministically — same inputs as `ci.yml`'s
    build), a GitHub release is cut with `dist/cdn/sfere.min.js`,
    `dist/cdn/sfere.js` and `dist/cdn/manifest.json` attached, and
    `cdn-deploy.yml` is called to publish those same files to the CDN.
+   (Paths are under `packages/browser/` since the workspace layout.)
 
-You don't do any of step 3 by hand — merging the Version Packages PR is the
+You don't do any of steps 3–4 by hand — merging the Version Packages PR is the
 only manual action.
 
 Two things worth knowing about that PR:

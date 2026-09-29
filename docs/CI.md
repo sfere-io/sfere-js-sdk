@@ -19,10 +19,10 @@ run per push would only double the e2e time.
 | Lint | `npm run lint` | `npm run lint` |
 | Format | `npm run format:check` | `npm run format:check` (`npm run format` to fix) |
 | Unit tests + coverage | `npm run test:coverage` | `npm run test:coverage` — writes `coverage/lcov.info` and `coverage/coverage-summary.json` |
-| Build | `npm run build` | `npm run build` — produces `dist/index.{js,cjs,d.ts}`, `dist/react.{js,cjs,d.ts}` and `dist/cdn/{sfere.min.js,sfere.js}` |
-| Size budget | `npm run size` | `npm run size` — fails if `dist/cdn/sfere.min.js` (gzipped) is over budget |
-| Dist contract | `npm run verify` | `npm run verify` — exports resolve (including `./react` and its `react/` node10 stub, `"use client"`, SDK kept external), the IIFE defines `window.SfereSDK`, no default host reaches `cdn.segment.com` / `api.segment.io`, license banners present |
-| Packaging sanity | `npm pack --dry-run` | same command |
+| Build | `npm run build` | `npm run build` — every workspace: `packages/browser/dist/{index,react}.{js,cjs,d.ts}` + `dist/cdn/{sfere.min.js,sfere.js}`, and `packages/node/dist/index.{js,cjs,d.ts}` |
+| Size budget | `npm run size` | `npm run size` — fails if the browser `dist/cdn/sfere.min.js` (gzipped) is over budget |
+| Dist contract | `npm run verify` | `npm run verify` — per package. Node: ESM/CJS exports, banner, shared code inlined, and a live send that reaches only the configured `/v1/batch` with the Sfere wire shape. Browser: exports resolve (including `./react` and its `react/` node10 stub, `"use client"`, SDK kept external), the IIFE defines `window.SfereSDK`, no default host reaches `cdn.segment.com` / `api.segment.io`, license banners present |
+| Packaging sanity | `npm pack --dry-run --workspaces` | same command |
 
 Coverage totals are written to the job's step summary (visible on the
 Actions run) and the full report is uploaded as the `coverage` artifact;
@@ -55,10 +55,21 @@ What the suite covers, beyond the per-feature specs:
     - traits and consent on later events;
     - no console errors.
 - **The live-CDN smoke** (`cdn-smoke.spec.ts`) is skipped here. It runs only in `cdn-deploy.yml`.
+- **Node SDK, as published** (`packages/node/test/e2e/packed.mjs`).
+  - It runs `npm pack`, installs the tarball into a consumer with its own package scope, and checks the tarball's file list.
+  - It then runs a real **ESM** app and a real **CommonJS** app. Each receives a browser-like request (proxy headers, ad cookies, a landing URL with click IDs) and forwards it with `requestContext()` to a mock ingestion host.
+  - It asserts:
+    - Basic auth on `/v1/batch`;
+    - the Sfere library and User-Agent;
+    - call order;
+    - the end-user IP, user agent, locale, page, campaign and click IDs (including `fbclid` → `fbc`);
+    - the dedup id.
+  - A TypeScript consumer is type-checked under `node16` and `bundler` resolution.
+- **Node SDK against staging** (`npm run smoke:staging -w @fanfinity/sfere-node`, manual, needs `SFERE_WRITE_KEY` and `SFERE_HOST`): sends a tagged identify and purchase through the built SDK and requires `okEvents: 2`.
 
 Because `release.yml` calls this workflow before publishing, a red e2e run blocks the npm publish, the tag and the CDN deploy.
 
-On failure, the `playwright-report` artifact is uploaded (HTML report with
+On failure, the `playwright-report` artifact (`packages/browser/playwright-report/`) is uploaded (HTML report with
 traces/screenshots).
 
 ### `sonar` (needs `check`)
@@ -121,5 +132,5 @@ The one-liner that mirrors `check` end to end:
 ```sh
 npm ci && npm run typecheck && npm run lint && npm run format:check \
   && npm run test:coverage && npm run build && npm run size && npm run verify \
-  && npm pack --dry-run
+  && npm pack --dry-run --workspaces
 ```
