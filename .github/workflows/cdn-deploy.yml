@@ -204,11 +204,15 @@ jobs:
           MINOR="${REST%%.*}"
           if [ "$MAJOR" = "0" ]; then SEGMENT="v0.${MINOR}"; else SEGMENT="v${MAJOR}"; fi
           export CDN_SMOKE_URL="${CDN_BASE_URL%/}/sdk/${SEGMENT}/sfere.min.js"
-          # 300 s max-age + one stale-while-revalidate hit, with margin.
-          DEADLINE=$(( $(date +%s) + 420 ))
+          # Measured on the 0.3.2 deploy: alias uploaded 11:11:07, first served by the edge
+          # ~11:19:17 (about 8 min). max-age is 300 s, but the backend bucket's serveWhileStale
+          # (86400 s) lets each cache node answer once more from the stale copy while it
+          # revalidates. 15 minutes leaves margin; a CDN invalidation would make this immediate
+          # but needs an extra compute permission for the deploy account.
+          DEADLINE=$(( $(date +%s) + 900 ))
           until curl -fsS "$CDN_SMOKE_URL" | head -c 200 | grep -q "Sfere SDK v${CDN_SMOKE_VERSION} "; do
             if [ "$(date +%s)" -ge "$DEADLINE" ]; then
-              echo "::error::$CDN_SMOKE_URL still does not serve v${CDN_SMOKE_VERSION} after 7 minutes"
+              echo "::error::$CDN_SMOKE_URL still does not serve v${CDN_SMOKE_VERSION} after 15 minutes"
               exit 1
             fi
             echo "Edge still serves the previous alias; retrying in 20 s"
