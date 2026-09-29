@@ -40,10 +40,10 @@ A full deploy of an already-deployed version fails by design: immutable files ar
 
 ### Before the second release of a new minor line (0.2.x, 0.3.x, …)
 
-The deploy account may overwrite only the alias folders it was provisioned for. Today that is only `sdk/v0.1/`. The first `0.2.0` release creates `sdk/v0.2/` without trouble. **Before `0.2.1`**, run:
+The deploy account may overwrite only the alias folders it was provisioned for. Since 2026-09-29 that is `sdk/v0.1/` to `sdk/v0.4/` (provisioned ahead, after the 0.3.1 alias move failed on this). The first `0.2.0` release creates `sdk/v0.2/` without trouble. **Before `0.2.1`**, run:
 
 ```sh
-CDN_ALIASES="v0.1 v0.2" infra/cdn/provision.sh
+CDN_ALIASES="v0.1 v0.2 v0.3 v0.4 v0.5" infra/cdn/provision.sh   # add the new line to the full list
 ```
 
 If you skip this, the second deploy on that line fails with a 403 on the alias upload. From 1.0 onwards, alias folders are per major (`v1`, `v2`, …). Background: [../infra/cdn/README.md](../infra/cdn/README.md).

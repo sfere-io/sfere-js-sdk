@@ -60,13 +60,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Condition. Cloud Storage conditions on object names support startsWith() /
 # endsWith() / extract() / == / != and no regex, so the alias prefixes are
 # enumerated rather than pattern-matched. Default: the alias line of the version
-# in ../../package.json (v0.<minor> while 0.x, v<major> from 1.0.0). A NEW alias
+# in ../../packages/browser/package.json (v0.<minor> while 0.x, v<major> from 1.0.0). A NEW alias
 # line (new minor while 0.x, new major after) must be added here and the script
 # re-run before the SECOND release on that line — the first release only
 # creates the alias objects, which objectCreator already allows. See README.md
 # "Alias overwrite: delete permission, scoped by IAM Condition".
 if [ -z "${CDN_ALIASES:-}" ]; then
-  PKG_VERSION="$(sed -nE 's/^ *"version": *"([^"]+)".*/\1/p' "${SCRIPT_DIR}/../../package.json" | head -n1)"
+  PKG_VERSION="$(sed -nE 's/^ *"version": *"([^"]+)".*/\1/p' "${SCRIPT_DIR}/../../packages/browser/package.json" | head -n1)"
   PKG_MAJOR="${PKG_VERSION%%.*}"
   PKG_REST="${PKG_VERSION#*.}"
   PKG_MINOR="${PKG_REST%%.*}"
@@ -163,9 +163,13 @@ run_idempotent gcloud iam roles create "$CUSTOM_ROLE_ID" \
   --permissions=storage.objects.get \
   --stage=GA
 
+# `--condition=None` on the unconditional bindings: once the policy holds the conditional alias
+# binding below, gcloud refuses (non-interactively) to add a binding without an explicit
+# condition, which broke every re-run after the first.
 run_idempotent gcloud storage buckets add-iam-policy-binding "gs://${BUCKET}" \
   --member=allUsers \
-  --role="projects/${PROJECT}/roles/${CUSTOM_ROLE_ID}"
+  --role="projects/${PROJECT}/roles/${CUSTOM_ROLE_ID}" \
+  --condition=None
 
 echo
 echo "--- Deploy service account ---"
@@ -183,11 +187,13 @@ run_idempotent gcloud iam service-accounts create "$DEPLOY_SA_ID" \
 # harmless (only this SA can use it, not the public).
 run_idempotent gcloud storage buckets add-iam-policy-binding "gs://${BUCKET}" \
   --member="serviceAccount:${DEPLOY_SA}" \
-  --role=roles/storage.objectCreator
+  --role=roles/storage.objectCreator \
+  --condition=None
 
 run_idempotent gcloud storage buckets add-iam-policy-binding "gs://${BUCKET}" \
   --member="serviceAccount:${DEPLOY_SA}" \
-  --role=roles/storage.objectViewer
+  --role=roles/storage.objectViewer \
+  --condition=None
 
 echo
 echo "--- Alias overwrite: delete permission scoped to the alias prefixes ---"
@@ -280,7 +286,13 @@ else
   echo "Alias lines the deploy SA may overwrite: ${CDN_ALIASES}"
   echo "When a new alias line starts (new minor while 0.x, new major after 1.0),"
   echo "re-run before the second release on that line, e.g.:"
-  echo "  CDN_ALIASES=\"${CDN_ALIASES} v0.$((${PKG_MINOR:-0} + 1))\" $0"
+  # Suggest the line after the highest one provisioned (v0.<n> -> v0.<n+1>, v<n> -> v<n+1>).
+  LAST_ALIAS="$(printf '%s\n' $CDN_ALIASES | sort -V | tail -n1)"
+  case "$LAST_ALIAS" in
+    v0.*) NEXT_ALIAS="v0.$(( ${LAST_ALIAS#v0.} + 1 ))" ;;
+    *) NEXT_ALIAS="v$(( ${LAST_ALIAS#v} + 1 ))" ;;
+  esac
+  echo "  CDN_ALIASES=\"${CDN_ALIASES} ${NEXT_ALIAS}\" $0"
   echo
   echo "DNS — create this record (cdn.sfere.io does not resolve today):"
   echo "  A   ${DOMAIN}   ->   ${IP}"

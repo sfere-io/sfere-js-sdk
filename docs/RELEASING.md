@@ -84,8 +84,17 @@ provisioned for (an IAM Condition enumerates them — `../infra/cdn/README.md`
 `/sdk/v0.2/`) works without any change; the *second* one (e.g. `0.2.1`,
 overwriting `/sdk/v0.2/`) fails on the alias upload until someone re-runs
 `infra/cdn/provision.sh` with `CDN_ALIASES` including the new line. Do that
-right after the first release of the line, then re-run `cdn-deploy.yml` if a
-deploy already failed.
+right after the first release of the line. If a deploy already failed on the
+alias, the immutable files are published, so a plain re-run stops on the
+immutability guard (HTTP 412); re-point only the alias instead:
+
+```sh
+CDN_ALIASES="v0.1 v0.2 v0.3 v0.4" infra/cdn/provision.sh
+gh workflow run cdn-deploy.yml --ref main -f version=<X.Y.Z> -f alias_only=true
+```
+
+As of 2026-09-29 the deploy account may overwrite `v0.1` to `v0.4`, so the
+next line that needs this is `v0.5`.
 
 ## Prerelease flow
 
