@@ -44,7 +44,39 @@ sfere.setConsent({ advertising: true, analytics: true }); // updates context.con
 - `SfereAnalytics.load` returns the `AnalyticsBrowser` from analytics-next, extended with `setConsent`.
 - `sfereEnrichment(options)` is exported for teams that call `AnalyticsBrowser.load` themselves.
 
-### Script-tag distribution (IIFE, `dist/cdn/sfere.min.js`)
+### React bindings (`@fanfinity/sfere-sdk/react`, `src/react.ts`), added 2026-09-29
+
+- `SfereProvider`, `useSfere()`, `usePageTracking(routeKey, options?)`. React `>=17 <20` is an optional peer dependency.
+- **A subpath of this package, not a separate package.** This is a deliberate deviation from the SDK-family plan, which proposed `packages/browser` + `packages/react` in Phase 1.
+  - The bindings only wrap `SfereAnalytics.load`, so versioning them in lockstep removes any compatibility matrix.
+  - It is the same trade-off as `@vercel/analytics/react`.
+  - The cost: a React-only fix cuts a new browser version and redeploys an identical CDN bundle. That is harmless, because CDN paths are versioned.
+  - Reviewed independently 2026-09-29.
+- **Build:** a separate tsup entry.
+  - The entry imports the SDK **by package name** and keeps it external, so apps share one SDK module and instance.
+  - It has its own banner, since it bundles no third-party code, followed by `"use client"`.
+  - `tsconfig.json` `paths` and a vitest alias point that import at `src/index.ts` for typecheck and unit tests. Only `verify` exercises the built self-import, so it must stay in CI.
+  - `react/package.json` is a resolution stub for consumers that ignore `exports` (TypeScript `moduleResolution: node10`, older bundlers).
+- **Behaviour:**
+  - The provider loads **once per write key + host** during render, not in an effect, because children's effects run first.
+  - Later options for the same key are ignored, with a console warning.
+  - React events carry `context.library.binding: "react"` beside the unchanged `name`, `version` and `base`.
+
+**When the Node SDK starts (Phase 2), convert this repo to an npm workspace:**
+
+```
+packages/browser        @fanfinity/sfere-sdk    (".", "./react"; the CDN source)
+packages/node           @fanfinity/sfere-node   (wraps analytics-node; must not be a subpath: it would add a Node dependency to every browser install)
+packages/shared         private, bundled into both: click-ID key maps, dedup rule
+packages/react-native   @fanfinity/sfere-react-native (Phase 3)
+```
+
+React stays a subpath of `packages/browser`. Python, Swift and Kotlin get their own repos; the GTM templates are not npm packages. The conversion also implies release pipeline changes:
+- **Tags.** Per-package tags in the changesets form (`@fanfinity/sfere-node@x.y.z`), keeping plain `vX.Y.Z` for the browser package, because `cdn-deploy.yml` checks out `v${version}`.
+- **Tagging step.** The step in `release.yml` loops over the published packages instead of reading the root `package.json`.
+- **Gating.** `release-artifacts` and `cdn-deploy` run only when the browser package was published.
+
+
 
 - Exposes `window.SfereSDK = { load, sfereEnrichment, version }`.
 - **Auto-init:** if the executing `<script>` has `data-write-key` and `data-host`, it calls `load()`, assigns the result to `window.sfere`, and **replays any calls queued on a stub `window.sfere`** created by the loader snippet before the bundle arrived.

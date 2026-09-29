@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as {
@@ -13,6 +14,15 @@ const aNext = JSON.parse(
 ) as { version: string };
 
 export default defineConfig({
+  resolve: {
+    // src/react.ts imports the package by name; tests run it against the source.
+    alias: [
+      {
+        find: /^@fanfinity\/sfere-sdk$/,
+        replacement: fileURLToPath(new URL("./src/index.ts", import.meta.url)),
+      },
+    ],
+  },
   define: {
     __SFERE_VERSION__: JSON.stringify(pkg.version),
     __SFERE_BASE_VERSION__: JSON.stringify(aNext.version),

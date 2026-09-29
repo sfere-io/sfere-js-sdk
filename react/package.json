@@ -1,0 +1,9 @@
+{
+  "name": "@fanfinity/sfere-sdk/react",
+  "private": true,
+  "description": "Resolution stub for tools that ignore package.json \"exports\" (TypeScript moduleResolution node10, older bundlers). Modern resolvers use the root package's exports map.",
+  "main": "../dist/react.cjs",
+  "module": "../dist/react.js",
+  "types": "../dist/react.d.ts",
+  "sideEffects": false
+}

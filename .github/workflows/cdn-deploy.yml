@@ -154,3 +154,47 @@ jobs:
             echo "- SRI: \`$EXPECTED\`"
             echo "- Cache-Control: \`$CACHE_CONTROL\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # The hash check above proves the bytes; this proves they work where clients run them. A real
+      # Chromium loads the live bundle (test/e2e/specs/cdn-smoke.spec.ts) and must deliver events to
+      # the mock ingestion host: first the immutable URL with <script integrity crossorigin> (what a
+      # pinned page does; catches SRI/CORS regressions), then the alias URL the loader snippet uses.
+      - name: Install Playwright Chromium
+        if: vars.CDN_BASE_URL != ''
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser smoke test (immutable URL, SRI)
+        if: vars.CDN_BASE_URL != ''
+        env:
+          CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
+          CDN_SMOKE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          export CDN_SMOKE_URL="${CDN_BASE_URL%/}/sdk/v${CDN_SMOKE_VERSION}/sfere.min.js"
+          export CDN_SMOKE_SRI="$(node -p 'JSON.parse(require("fs").readFileSync("dist/cdn/manifest.json","utf8")).files.find(f=>f.path.endsWith("sfere.min.js")).sha384')"
+          npx playwright test test/e2e/specs/cdn-smoke.spec.ts
+
+      # Prereleases never move the alias (scripts/cdn-publish.sh). The query string is unique per
+      # run so the edge fetches the alias fresh instead of serving the previous version's copy.
+      - name: Browser smoke test (alias URL)
+        if: vars.CDN_BASE_URL != '' && !contains(inputs.version, '-')
+        env:
+          CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
+          CDN_SMOKE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          MAJOR="${CDN_SMOKE_VERSION%%.*}"
+          REST="${CDN_SMOKE_VERSION#*.}"
+          MINOR="${REST%%.*}"
+          if [ "$MAJOR" = "0" ]; then SEGMENT="v0.${MINOR}"; else SEGMENT="v${MAJOR}"; fi
+          export CDN_SMOKE_URL="${CDN_BASE_URL%/}/sdk/${SEGMENT}/sfere.min.js?smoke=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          npx playwright test test/e2e/specs/cdn-smoke.spec.ts
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: cdn-smoke-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14

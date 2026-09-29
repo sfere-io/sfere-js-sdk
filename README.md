@@ -83,6 +83,23 @@ sfere.track("add_to_cart", {
 
 `load()` returns immediately; calls made before the SDK is ready are buffered. On the server (no `window`) it returns an inert instance whose methods resolve to `undefined`, so shared code can call it during SSR.
 
+### React and Next.js
+
+```tsx
+import { SfereProvider, usePageTracking, useSfere } from "@fanfinity/sfere-sdk/react";
+
+<SfereProvider writeKey="keyId:secret" host="https://ingest.example.com">
+  <App />
+</SfereProvider>;
+
+// inside a component under the provider
+usePageTracking(pathname + search); // one page() per route change
+const sfere = useSfere();
+sfere.track("add_to_cart", { currency: "SAR", value: 29.99, items: [/* … */] });
+```
+
+The provider loads the SDK once per write key and host, StrictMode included. React is an optional peer dependency (17+). For React Router and the Next.js App/Pages Router setups, see [Integration guide: React and Next.js](docs/INTEGRATION.md#react-and-nextjs-fanfinitysfere-sdkreact).
+
 ## Configuration
 
 Options for `SfereAnalytics.load()` (`SfereLoadOptions` in `dist/index.d.ts`):
@@ -177,8 +194,10 @@ This SDK uses [@segment/analytics-next](https://github.com/segmentio/analytics-n
 
 ## More
 
-- [Integration guide](docs/INTEGRATION.md) — CSP, SPA page views, consent, deduplication, troubleshooting
+- [Integration guide](docs/INTEGRATION.md) — CSP, SPA page views and React bindings, consent, deduplication, troubleshooting
 - [Events reference](docs/EVENTS.md) — GA4 event names, properties and examples
+- [Wire contract](docs/WIRE-CONTRACT.md) — the payload every Sfere SDK sends (browser, React, server, mobile)
+- [HTTP API](docs/HTTP-API.md) — send events without an SDK
 - [CDN policy](docs/CDN-POLICY.md) — versioning, SRI, aliases, rollback
 - [Security](SECURITY.md) — vulnerability reporting, what is stored, what is sent
 - [Contributing](CONTRIBUTING.md) — branch conventions, testing, changesets

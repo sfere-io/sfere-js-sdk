@@ -19,9 +19,9 @@ run per push would only double the e2e time.
 | Lint | `npm run lint` | `npm run lint` |
 | Format | `npm run format:check` | `npm run format:check` (`npm run format` to fix) |
 | Unit tests + coverage | `npm run test:coverage` | `npm run test:coverage` — writes `coverage/lcov.info` and `coverage/coverage-summary.json` |
-| Build | `npm run build` | `npm run build` — produces `dist/index.{js,cjs,d.ts}` and `dist/cdn/{sfere.min.js,sfere.js}` |
+| Build | `npm run build` | `npm run build` — produces `dist/index.{js,cjs,d.ts}`, `dist/react.{js,cjs,d.ts}` and `dist/cdn/{sfere.min.js,sfere.js}` |
 | Size budget | `npm run size` | `npm run size` — fails if `dist/cdn/sfere.min.js` (gzipped) is over budget |
-| Dist contract | `npm run verify` | `npm run verify` — exports resolve, the IIFE defines `window.SfereSDK`, no default host reaches `cdn.segment.com` / `api.segment.io`, license banner present |
+| Dist contract | `npm run verify` | `npm run verify` — exports resolve (including `./react` and its `react/` node10 stub, `"use client"`, SDK kept external), the IIFE defines `window.SfereSDK`, no default host reaches `cdn.segment.com` / `api.segment.io`, license banners present |
 | Packaging sanity | `npm pack --dry-run` | same command |
 
 Coverage totals are written to the job's step summary (visible on the
@@ -41,6 +41,22 @@ npm run build
 npx playwright install --with-deps chromium   # first time only
 npm run test:e2e
 ```
+
+What the suite covers, beyond the per-feature specs:
+
+- **React bindings, as published** (`test/e2e/specs/react.spec.ts`).
+  - `global-setup.ts` runs `npm pack` and extracts the tarball into `test/e2e/.tmp/consumer/node_modules/`, with the consumer in its own package scope.
+  - It then bundles `test/e2e/react-app.tsx` (React 19, StrictMode) against the installed package, in both the development and production builds.
+  - Setup fails if the bundle does not contain the installed `dist/index.js` exactly once. That catches a file missing from `files`, a broken `exports` map, or a second SDK copy.
+  - The spec asserts:
+    - one page view per route;
+    - one SDK instance;
+    - React-tagged, well-formed payloads;
+    - traits and consent on later events;
+    - no console errors.
+- **The live-CDN smoke** (`cdn-smoke.spec.ts`) is skipped here. It runs only in `cdn-deploy.yml`.
+
+Because `release.yml` calls this workflow before publishing, a red e2e run blocks the npm publish, the tag and the CDN deploy.
 
 On failure, the `playwright-report` artifact is uploaded (HTML report with
 traces/screenshots).
@@ -77,7 +93,21 @@ confirms the checked-out `package.json` version matches the requested
 version, authenticates to GCP via WIF, and runs `scripts/cdn-publish.sh`.
 When `CDN_BASE_URL` is set, it then fetches the just-published immutable URL
 and checks its SRI hash against `manifest.json` and its `Cache-Control` /
-`Content-Type` headers. Local equivalent (without the GCP upload):
+`Content-Type` headers. It then runs **a browser smoke test against the live CDN**: Playwright Chromium runs `test/e2e/specs/cdn-smoke.spec.ts`, which loads the published bundle and must deliver a `track` to the mock ingestion host.
+
+1. **The immutable URL**, loaded with `<script integrity crossorigin>` using the manifest's SRI. This fails fast on an SRI, CORS or HTTP error.
+2. **The alias URL** the loader snippet uses (skipped for prereleases). It carries a per-run query string so the edge cache is bypassed, and it must report the deployed `context.library.version`.
+
+On failure, the `cdn-smoke-report` artifact is uploaded. Run the smoke test against production by hand:
+
+```sh
+npm run build   # global-setup needs dist/
+CDN_SMOKE_URL=https://cdn.sfere.io/sdk/v0.1.0/sfere.min.js \
+CDN_SMOKE_SRI="$(curl -fsS https://cdn.sfere.io/sdk/v0.1.0/manifest.json | node -p 'JSON.parse(require("fs").readFileSync(0)).files.find(f=>f.path.endsWith("sfere.min.js")).sha384')" \
+CDN_SMOKE_VERSION=0.1.0 npx playwright test test/e2e/specs/cdn-smoke.spec.ts
+```
+
+Local equivalent of the build and upload (without the GCP upload):
 
 ```sh
 npm run build && npm run verify && npm run cdn:manifest
