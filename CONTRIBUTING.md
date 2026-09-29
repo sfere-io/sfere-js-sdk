@@ -127,12 +127,12 @@ const lang = typeof window !== "undefined" && document.documentElement.lang ? do
 ### Imports and exports
 
 - Prefer ESM (`import`/`export`) in source; the build handles CJS and types.
-- Export the public API from `src/index.ts`; internal modules are not exported.
+- Each package exports its public API from `packages/<pkg>/src/index.ts`; internal modules are not exported.
 - Use default exports sparingly; prefer named exports for clarity.
 
 ## Testing
 
-- Unit tests live in `test/unit/`, mirroring src/ structure.
+- Unit tests live in `packages/<pkg>/test/unit/`, mirroring its `src/` structure.
 - E2E tests in `test/e2e/` use Playwright + a mock ingestion server.
 - Line coverage of `src/` must stay at or above 90% (`vitest.config.ts` `coverage.thresholds`; `src/events.ts` is types only and excluded). `npm run test:coverage` fails below it, locally and in CI.
 

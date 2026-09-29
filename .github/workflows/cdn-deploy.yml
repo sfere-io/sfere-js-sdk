@@ -75,6 +75,15 @@ jobs:
         with:
           ref: "v${{ inputs.version }}"
 
+      # Where the browser package lives in the checked-out tag: packages/browser since the
+      # workspace layout (after v0.3.0), the repo root before it. Rollbacks to an older tag
+      # therefore keep working with this newer workflow.
+      - name: Locate the browser package
+        run: |
+          if [ -f packages/browser/package.json ]; then DIR=packages/browser; else DIR=.; fi
+          echo "PKG_DIR=$DIR" >> "$GITHUB_ENV"
+          echo "Browser package directory in v${{ inputs.version }}: $DIR" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
@@ -90,7 +99,7 @@ jobs:
 
       - name: Tag must match package.json version
         run: |
-          PKG="$(node -p 'require("./package.json").version')"
+          PKG="$(node -p "require('./$PKG_DIR/package.json').version")"
           if [ "$PKG" != "${{ inputs.version }}" ]; then
             echo "::error::checked-out package.json version ($PKG) does not match the requested version (${{ inputs.version }})"
             exit 1
@@ -106,6 +115,7 @@ jobs:
       # `inputs.alias_only` only exists on workflow_dispatch; on workflow_call it is
       # empty, which the comparison treats as false (a normal, full publish).
       - name: Publish to the CDN bucket
+        working-directory: ${{ env.PKG_DIR }}
         run: |
           if [ "${{ inputs.alias_only }}" = "true" ]; then
             scripts/cdn-publish.sh "${{ inputs.version }}" --alias-only
@@ -122,7 +132,7 @@ jobs:
         run: |
           set -euo pipefail
           URL="${CDN_BASE_URL%/}/sdk/v${{ inputs.version }}/sfere.min.js"
-          EXPECTED="$(node -p 'JSON.parse(require("fs").readFileSync("dist/cdn/manifest.json","utf8")).files.find(f=>f.path.endsWith("sfere.min.js")).sha384')"
+          EXPECTED="$(node -p 'JSON.parse(require("fs").readFileSync(process.env.PKG_DIR + "/dist/cdn/manifest.json","utf8")).files.find(f=>f.path.endsWith("sfere.min.js")).sha384')"
 
           echo "Fetching $URL"
           curl -fsS -D headers.txt -o downloaded.js "$URL"
@@ -161,10 +171,12 @@ jobs:
       # pinned page does; catches SRI/CORS regressions), then the alias URL the loader snippet uses.
       - name: Install Playwright Chromium
         if: vars.CDN_BASE_URL != ''
+        working-directory: ${{ env.PKG_DIR }}
         run: npx playwright install --with-deps chromium
 
       - name: Browser smoke test (immutable URL, SRI)
         if: vars.CDN_BASE_URL != ''
+        working-directory: ${{ env.PKG_DIR }}
         env:
           CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
           CDN_SMOKE_VERSION: ${{ inputs.version }}
@@ -178,6 +190,7 @@ jobs:
       # run so the edge fetches the alias fresh instead of serving the previous version's copy.
       - name: Browser smoke test (alias URL)
         if: vars.CDN_BASE_URL != '' && !contains(inputs.version, '-')
+        working-directory: ${{ env.PKG_DIR }}
         env:
           CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
           CDN_SMOKE_VERSION: ${{ inputs.version }}
@@ -195,6 +208,6 @@ jobs:
         with:
           name: cdn-smoke-report
           path: |
-            playwright-report/
-            test-results/
+            ${{ env.PKG_DIR }}/playwright-report/
+            ${{ env.PKG_DIR }}/test-results/
           retention-days: 14

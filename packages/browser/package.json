@@ -1,0 +1,87 @@
+{
+  "name": "@fanfinity/sfere-sdk",
+  "version": "0.3.0",
+  "description": "Sfere browser SDK: first-party event collection with ad click-ID enrichment",
+  "license": "UNLICENSED",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fanfinity/sfere-sdk.git",
+    "directory": "packages/browser"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.js"
+      },
+      "require": {
+        "types": "./dist/react.d.cts",
+        "default": "./dist/react.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "react",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "clean": "node -e \"for (const d of ['dist','coverage']) require('node:fs').rmSync(d,{recursive:true,force:true})\"",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "size": "node scripts/size-check.mjs",
+    "verify": "node scripts/verify-dist.mjs",
+    "cdn:manifest": "node scripts/cdn-manifest.mjs"
+  },
+  "dependencies": {
+    "@segment/analytics-next": "1.84.3"
+  },
+  "peerDependencies": {
+    "react": ">=17 <20"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@fanfinity/sfere-shared": "0.0.0",
+    "@playwright/test": "^1.63.0",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@vitest/coverage-v8": "^5.0.2",
+    "happy-dom": "^20.14.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

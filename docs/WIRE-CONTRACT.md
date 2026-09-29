@@ -1,8 +1,8 @@
 # Wire contract: what every Sfere SDK sends
 
-_The source of truth for the browser SDK, the React bindings and the planned server (Node, Python), mobile (iOS, Android, React Native) and tag-manager integrations. A new SDK is done when its events match this page. Event names and properties are in [EVENTS.md](EVENTS.md) and are not repeated here._
+_The source of truth for the browser SDK, the React bindings and the Node server SDK, and the planned Python server, mobile (iOS, Android, React Native) and tag-manager integrations. A new SDK is done when its events match this page. Event names and properties are in [EVENTS.md](EVENTS.md) and are not repeated here._
 
-Status key: **live** = shipped in the browser SDK and checked on the wire. **planned** = required of the SDK that will introduce it. **UNVERIFIED** = not yet tested against the ingestion endpoint.
+Status key: **live** = shipped and checked on the wire (for the Server column: `@fanfinity/sfere-node`, verified on staging 2026-09-29). **planned** = required of the SDK that will introduce it. **UNVERIFIED** = not yet tested against the ingestion endpoint.
 
 ## 1. Endpoints
 
@@ -59,17 +59,17 @@ Standard fields: `type`, `messageId`, `anonymousId`, `userId`, `timestamp`, `con
 
 | Field | Browser | Server | Mobile | Rule |
 |---|---|---|---|---|
-| `context.clientIds` | live: cookies + landing URL params | planned: from the incoming request's cookies and URL | planned: from the deep link / install referrer | Key names are fixed by the destinations: `fbp, fbc, ttp, ttclid, scid, scclid, epik, li_fat_id, msclkid, oppref, obref, gclid, wbraid, gbraid, twclid, rdt_cid, clarity_uid, clarity_sid`. A landing `fbclid` becomes `fbc = fb.1.<ms>.<fbclid>` |
-| `context.traits` | live: identify traits copied to later events (`carryTraits`) | planned: caller-supplied | planned: same as browser | Plain values (email, phone); never hashed by the SDK |
+| `context.clientIds` | live: cookies + landing URL params | live: `requestContext(req)`, from the request's cookies and URL (same maps, `packages/shared`) | planned: from the deep link / install referrer | Key names are fixed by the destinations: `fbp, fbc, ttp, ttclid, scid, scclid, epik, li_fat_id, msclkid, oppref, obref, gclid, wbraid, gbraid, twclid, rdt_cid, clarity_uid, clarity_sid`. A landing `fbclid` becomes `fbc = fb.1.<ms>.<fbclid>` |
+| `context.traits` | live: identify traits copied to later events (`carryTraits`) | caller-supplied | planned: same as browser | Plain values (email, phone); never hashed by the SDK |
 | `context.session.id` | live: epoch ms, rotates after 30 min of inactivity | optional: forward the browser's | planned: same rule, app foreground counts as activity | Number |
 | `context.consent.categoryPreferences` | live: `setConsent()` | planned: forwarded from the browser | planned: `setConsent()` | `{ advertising: bool, analytics: bool, … }`; omitted when unknown |
-| `context.library` | live | planned | planned | `{ name: "@fanfinity/sfere-<sdk>", version, base: "<underlying library>@<version>" }`. A framework binding adds `binding` (live: `"react"`) and leaves `name` as its SDK's |
-| `context.ip`, `context.userAgent` | filled by the ingestion endpoint | **required**: the end user's, forwarded from the original request | filled by the endpoint / the SDK | Server ingest **keeps whatever `context.ip` the sender sets** and **never fills a missing one**. It records the caller's address separately, as top-level `requestIp`. The CAPI destinations read only `context.ip`, so a server event without it reaches ad platforms with **no IP at all**, and loses that match signal (verified 2026-09-29) |
-| `context.page.url`, `.referrer`, `.lang` | live | planned: from the incoming request | n/a | |
-| `context.campaign` | live: `utm_*` + `gad_source`, `gad_campaignid` | planned: from the request URL | planned: from the deep link | |
+| `context.library` | live | live | planned | `{ name: "@fanfinity/sfere-<sdk>", version, base: "<underlying library>@<version>" }`. A framework binding adds `binding` (live: `"react"`) and leaves `name` as its SDK's |
+| `context.ip`, `context.userAgent` | filled by the ingestion endpoint | **required**, live: `requestContext(req)` forwards the end user's (left-most `X-Forwarded-For`, then `X-Real-IP`, then the socket) | filled by the endpoint / the SDK | Server ingest **keeps whatever `context.ip` the sender sets** and **never fills a missing one**. It records the caller's address separately, as top-level `requestIp`. The CAPI destinations read only `context.ip`, so a server event without it reaches ad platforms with **no IP at all**, and loses that match signal (verified 2026-09-29) |
+| `context.page.url`, `.referrer`, `.lang` | live | live: `requestContext(req)` (`url`, `path`, `search`, `referrer`; `locale` from `Accept-Language`) | n/a | |
+| `context.campaign` | live: `utm_*` + `gad_source`, `gad_campaignid` | live: `requestContext(req)`, from the page URL, else the referrer | planned: from the deep link | |
 | `context.device.advertisingId`, `context.device.adTrackingEnabled` | n/a | n/a | planned | IDFA only after ATT authorisation; GAID only when the advertising consent category is granted. Otherwise omit, never send zeros |
 | `context.app` | n/a | n/a | planned | `{ name, version, build, namespace }` |
-| `properties.sfere_dedup_id` | live (`track`) | planned (`track`) | planned (`track`) | Kept when the caller sets it, otherwise `messageId`. A purchase sent from both the browser and a server must carry the **same** value |
+| `properties.sfere_dedup_id` | live (`track`) | live (`track`) | planned (`track`) | Kept when the caller sets it, otherwise `messageId`. A purchase sent from both the browser and a server must carry the **same** value |
 
 ## 5. Delivery
 

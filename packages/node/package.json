@@ -1,0 +1,61 @@
+{
+  "name": "@fanfinity/sfere-node",
+  "version": "0.0.0",
+  "description": "Sfere server SDK for Node.js: server-to-server event collection that forwards the end user's IP, user agent and ad click IDs",
+  "license": "UNLICENSED",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fanfinity/sfere-sdk.git",
+    "directory": "packages/node"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "clean": "node -e \"for (const d of ['dist','coverage']) require('node:fs').rmSync(d,{recursive:true,force:true})\"",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "node test/e2e/packed.mjs",
+    "verify": "node scripts/verify-dist.mjs",
+    "smoke:staging": "node scripts/staging-smoke.mjs"
+  },
+  "dependencies": {
+    "@segment/analytics-node": "3.1.0"
+  },
+  "devDependencies": {
+    "@fanfinity/sfere-shared": "0.0.0",
+    "@types/node": "^26.6.3",
+    "@vitest/coverage-v8": "^5.0.2",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

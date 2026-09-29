@@ -74,34 +74,50 @@ jobs:
       # Decide "published" ourselves instead of trusting the action's output: with
       # `--no-git-tag` the Changesets CLI emits no release events, so the action
       # reports published=false even after a successful publish (seen on the
-      # first 0.1.0 release). Rule: when no changesets are pending, the version in
-      # package.json exists on the registry, and its vX.Y.Z tag does not exist
-      # yet, this run released it. That also recovers a run whose later jobs
-      # failed: the next push to main tags and deploys the missed version.
+      # first 0.1.0 release). Rule, per public workspace package: when no
+      # changesets are pending, the version in its package.json exists on the
+      # registry, and its tag does not exist yet, this run released it. That also
+      # recovers a run whose later jobs failed: the next push to main tags (and,
+      # for the browser SDK, deploys) the missed version.
+      #
+      # Tags: the browser SDK keeps plain `vX.Y.Z` (cdn-deploy.yml and the
+      # GitHub release check it out); every other package gets the Changesets
+      # form `<name>@X.Y.Z`. The job outputs describe the browser SDK only,
+      # because only it has release artifacts and a CDN deploy.
+      #
       # Pushed with the GITHUB_TOKEN credentials actions/checkout persisted. A tag
       # pushed by GITHUB_TOKEN never starts other workflows, which is fine: the
       # CDN deploy is invoked below via workflow_call, not by a tag trigger.
-      - name: Tag the published version
+      - name: Tag the published versions
         id: tag
         if: steps.changesets.outputs.has-changesets == 'false'
         run: |
-          V="$(node -p 'require("./package.json").version')"
-          NAME="$(node -p 'require("./package.json").name')"
-          TAG="v$V"
-          echo "version=$V" >> "$GITHUB_OUTPUT"
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
-            echo "$TAG already tagged; nothing to release." >> "$GITHUB_STEP_SUMMARY"
-            echo "published=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if ! npm view "$NAME@$V" version > /dev/null 2>&1; then
-            echo "::error::$NAME@$V is not on the registry after the publish step."
-            exit 1
-          fi
-          git tag "$TAG" HEAD
-          git push origin "$TAG"
-          echo "published=true" >> "$GITHUB_OUTPUT"
-          echo "Released $NAME@$V as $TAG." >> "$GITHUB_STEP_SUMMARY"
+          BROWSER="@fanfinity/sfere-sdk"
+          PUBLISHED=false
+          VERSION=""
+          for manifest in packages/*/package.json; do
+            if [ "$(node -p "require('./$manifest').private === true")" = "true" ]; then continue; fi
+            NAME="$(node -p "require('./$manifest').name")"
+            V="$(node -p "require('./$manifest').version")"
+            if [ "$NAME" = "$BROWSER" ]; then TAG="v$V"; else TAG="$NAME@$V"; fi
+            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+              echo "$TAG already tagged; nothing to release for $NAME." >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            if ! npm view "$NAME@$V" version > /dev/null 2>&1; then
+              echo "::error::$NAME@$V is not on the registry after the publish step."
+              exit 1
+            fi
+            git tag "$TAG" HEAD
+            git push origin "$TAG"
+            echo "Released $NAME@$V as $TAG." >> "$GITHUB_STEP_SUMMARY"
+            if [ "$NAME" = "$BROWSER" ]; then
+              PUBLISHED=true
+              VERSION="$V"
+            fi
+          done
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -143,9 +159,9 @@ jobs:
           prerelease: ${{ steps.kind.outputs.prerelease }}
           generate_release_notes: true
           files: |
-            dist/cdn/sfere.min.js
-            dist/cdn/sfere.js
-            dist/cdn/manifest.json
+            packages/browser/dist/cdn/sfere.min.js
+            packages/browser/dist/cdn/sfere.js
+            packages/browser/dist/cdn/manifest.json
 
   # A called workflow can never hold more permissions than the calling job grants
   # it, so the WIF `id-token: write` cdn-deploy.yml's deploy job needs must be

@@ -1,0 +1,12 @@
+{
+  "name": "@fanfinity/sfere-shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Internal: identifier maps and parsers shared by the Sfere SDKs. Bundled into each SDK at build time, never published.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false
+}

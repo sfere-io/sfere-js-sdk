@@ -108,7 +108,7 @@ To roll back, re-point an alias at a previously published (already
 immutable) version — never re-publish or mutate the old version's bytes:
 
 ```sh
-scripts/cdn-publish.sh <version-to-roll-back-to> --alias-only
+packages/browser/scripts/cdn-publish.sh <version-to-roll-back-to> --alias-only   # run from packages/browser
 ```
 
 `--alias-only` skips the immutable upload entirely (that version's immutable

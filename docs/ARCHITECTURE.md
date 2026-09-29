@@ -62,18 +62,19 @@ sfere.setConsent({ advertising: true, analytics: true }); // updates context.con
   - Later options for the same key are ignored, with a console warning.
   - React events carry `context.library.binding: "react"` beside the unchanged `name`, `version` and `base`.
 
-**When the Node SDK starts (Phase 2), convert this repo to an npm workspace:**
+**The repo is an npm workspace (since the Node SDK, 2026-09-29):**
 
 ```
 packages/browser        @fanfinity/sfere-sdk    (".", "./react"; the CDN source)
 packages/node           @fanfinity/sfere-node   (wraps analytics-node; must not be a subpath: it would add a Node dependency to every browser install)
-packages/shared         private, bundled into both: click-ID key maps, dedup rule
-packages/react-native   @fanfinity/sfere-react-native (Phase 3)
+packages/shared         private, source-only, bundled into both: cookie/URL click-ID maps and parsers
+packages/react-native   @fanfinity/sfere-react-native (Phase 3, not yet created)
 ```
 
-React stays a subpath of `packages/browser`. Python, Swift and Kotlin get their own repos; the GTM templates are not npm packages. The conversion also implies release pipeline changes:
+React stays a subpath of `packages/browser`. Python, Swift and Kotlin get their own repos; the GTM templates are not npm packages. The release pipeline handles several packages:
 - **Tags.** Per-package tags in the changesets form (`@fanfinity/sfere-node@x.y.z`), keeping plain `vX.Y.Z` for the browser package, because `cdn-deploy.yml` checks out `v${version}`.
-- **Tagging step.** The step in `release.yml` loops over the published packages instead of reading the root `package.json`.
+- **Tagging step.** The step in `release.yml` loops over every public `packages/*/package.json`.
+- **Rollbacks.** `cdn-deploy.yml` finds the browser package in the checked-out tag (`packages/browser`, or the repo root for v0.3.0 and older), so rolling back to a pre-workspace version still works.
 - **Gating.** `release-artifacts` and `cdn-deploy` run only when the browser package was published.
 
 
@@ -109,10 +110,14 @@ Port of `../sfere-sdk-research/lab/sfere-enrichment.js`, which was proven on the
 
 | Path | Owner | What |
 |---|---|---|
-| `src/`, `test/unit/`, `tsup.config.ts`, `tsconfig*.json`, `vitest.config.ts`, `eslint.config.js`, `.prettierrc`, `package.json` (scripts + deps), `scripts/size-check.mjs`, `scripts/verify-dist.mjs`, `THIRD_PARTY_NOTICES.md` | SDK core | code, unit tests, build |
-| `.github/`, `sonar-project.properties`, `.changeset/`, `infra/cdn/`, `scripts/cdn-*.{mjs,sh}`, `docs/CDN-POLICY.md`, `docs/RELEASING.md`, `docs/CI.md` | Delivery | CI/CD, Sonar, versioning, publishing, CDN |
-| `test/e2e/` | E2E | Playwright + mock ingestion server |
-| `README.md`, `docs/INTEGRATION.md`, `docs/EVENTS.md`, `CONTRIBUTING.md`, `SECURITY.md` | Docs | developer-facing docs, shareable with client developers |
+| `packages/browser/` (`src/`, `test/unit/`, `tsup.config.ts`, `tsconfig*.json`, `vitest.config.ts`, `scripts/size-check.mjs`, `scripts/verify-dist.mjs`, `THIRD_PARTY_NOTICES.md`) | SDK core | browser SDK code, unit tests, build |
+| `packages/node/` | SDK core | Node SDK: `src/index.ts` (client + dedup plugin), `src/http-client.ts` (wire shaping), `src/context.ts` (`requestContext`), `scripts/verify-dist.mjs`, `scripts/staging-smoke.mjs`, `test/e2e/packed.mjs` |
+| `packages/shared/` | SDK core | identifier maps and parsers both SDKs bundle |
+| `.github/`, `sonar-project.properties`, `.changeset/`, `infra/cdn/`, `packages/browser/scripts/cdn-*.{mjs,sh}`, `docs/CDN-POLICY.md`, `docs/RELEASING.md`, `docs/CI.md` | Delivery | CI/CD, Sonar, versioning, publishing, CDN |
+| `packages/browser/test/e2e/` | E2E | Playwright + mock ingestion server |
+| `README.md`, `packages/*/README.md`, `docs/INTEGRATION.md`, `docs/EVENTS.md`, `docs/WIRE-CONTRACT.md`, `docs/HTTP-API.md`, `CONTRIBUTING.md`, `SECURITY.md` | Docs | developer-facing docs, shareable with client developers |
+
+Root `package.json` scripts keep the names CI calls and fan out to the workspaces (`--workspaces --if-present`); `size` and `cdn:manifest` run in the browser package only. Lint and format run once over the whole repo.
 
 ## npm scripts (names are fixed; CI calls exactly these)
 
