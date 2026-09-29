@@ -45,7 +45,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "node test/e2e/packed.mjs",
     "verify": "node scripts/verify-dist.mjs",
-    "smoke:staging": "node scripts/staging-smoke.mjs"
+    "smoke:staging": "node scripts/staging-smoke.mjs",
+    "prepublishOnly": "node -e \"for (const f of ['dist/index.js','dist/index.cjs','dist/index.d.ts']) require('node:fs').accessSync(f)\" || (echo 'refusing to publish: dist/ is not built (run npm run build)' >&2; exit 1)"
   },
   "dependencies": {
     "@segment/analytics-node": "3.1.0"

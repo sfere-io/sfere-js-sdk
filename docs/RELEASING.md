@@ -42,7 +42,14 @@ reminder, not an automated gate.
    - **No pending changesets** (this push *is* that PR's merge) → it
      publishes every public workspace package whose `package.json` version is
      not yet on GitHub Packages (`@fanfinity/sfere-sdk`, `@fanfinity/sfere-node`).
-3. Each package published gets a tag: `vX.Y.Z` for the browser SDK,
+   The publish job builds every package first (`npm run build`); each
+   package's `prepublishOnly` also refuses to publish without `dist/`.
+   Releases up to `sfere-sdk` 0.3.1 and `sfere-node` 0.1.0 were published
+   **without `dist/`** (no build in this job), so those npm versions are
+   unusable; the CDN was never affected. Use 0.3.2+ / 0.1.1+.
+3. Before tagging, the release downloads each newly published version back
+   from the registry and fails unless it contains its `dist/` entry points.
+   Each package published gets a tag: `vX.Y.Z` for the browser SDK,
    `@fanfinity/sfere-node@X.Y.Z` for the Node SDK. Only a browser release
    continues below; a Node-only release stops at the tag.
 4. On a successful browser publish: dist is
