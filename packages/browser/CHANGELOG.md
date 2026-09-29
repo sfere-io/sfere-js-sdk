@@ -1,5 +1,11 @@
 # @fanfinity/sfere-sdk
 
+## 0.3.1
+
+### Patch Changes
+
+- 5ad2974: The storage/cookie probe in `load()` now removes its `sfere_probe` cookie with an expiry date in the past instead of `max-age=0`, which some DOM implementations kept readable. No behaviour change in browsers.
+
 ## 0.3.0
 
 ### Minor Changes
