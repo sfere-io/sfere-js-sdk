@@ -1,6 +1,6 @@
 {
   "name": "@fanfinity/sfere-sdk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Sfere browser SDK: first-party event collection with ad click-ID enrichment",
   "license": "UNLICENSED",
   "private": false,
