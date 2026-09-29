@@ -1,6 +1,6 @@
 {
   "name": "@fanfinity/sfere-node",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Sfere server SDK for Node.js: server-to-server event collection that forwards the end user's IP, user agent and ad click IDs",
   "license": "UNLICENSED",
   "private": false,
