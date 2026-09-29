@@ -28,6 +28,9 @@ for (const file of [
   "dist/index.js",
   "dist/index.cjs",
   "dist/index.d.ts",
+  "dist/react.js",
+  "dist/react.cjs",
+  "dist/react.d.ts",
   "dist/cdn/sfere.js",
   "dist/cdn/sfere.min.js",
 ]) {
@@ -46,6 +49,25 @@ check(
   readFileSync("dist/index.d.ts", "utf8").includes("SfereLoadOptions"),
   "types declare SfereLoadOptions",
 );
+const reactEsm = await import(`${pkg.name}/react`);
+const reactCjs = createRequire(import.meta.url)(`${pkg.name}/react`);
+for (const [label, mod] of [
+  ["ESM", reactEsm],
+  ["CJS", reactCjs],
+]) {
+  for (const name of ["SfereProvider", "useSfere", "usePageTracking"]) {
+    check(typeof mod[name] === "function", `${label} ${pkg.name}/react exports ${name}`);
+  }
+}
+for (const file of ["dist/react.js", "dist/react.cjs"]) {
+  const code = readFileSync(file, "utf8");
+  check(/\*\/\s*"use client";/.test(code.slice(0, 600)), `${file} opens with "use client"`);
+  // The SDK must stay external: a bundled copy would give the app a second queue and instance.
+  check(
+    code.includes(`"${pkg.name}"`) && code.length < 10_000,
+    `${file} imports ${pkg.name} instead of bundling it (${code.length} B)`,
+  );
+}
 finish("exports");
 
 // 2. Banner ----------------------------------------------------------------------------------
@@ -61,6 +83,20 @@ for (const file of [
     head.startsWith(`/*! Sfere SDK v${pkg.version}`) && head.includes("@segment/analytics-next"),
     `${file} starts with the Sfere license banner`,
   );
+}
+// The React entry bundles no third-party code, so its banner must not claim to.
+for (const file of ["dist/react.js", "dist/react.cjs"]) {
+  const head = readFileSync(file, "utf8").slice(0, 400);
+  check(
+    head.startsWith(`/*! Sfere SDK v${pkg.version} React bindings`) &&
+      !head.includes("@segment/analytics-next"),
+    `${file} starts with the React bindings banner`,
+  );
+}
+// node10 resolution (no "exports"): the react/ stub must point at files that exist.
+const stub = JSON.parse(readFileSync("react/package.json", "utf8"));
+for (const field of ["main", "module", "types"]) {
+  check(existsSync(`react/${stub[field]}`), `react/package.json ${field} -> ${stub[field]} exists`);
 }
 finish("banner");
 

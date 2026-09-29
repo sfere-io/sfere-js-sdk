@@ -47,32 +47,69 @@ If you use a nonce, put it on the inline loader snippet (`<script nonce="…">`)
 
 Call `sfere.page()` every time the route changes. The SDK does not track route changes automatically. With the CDN loader snippet the first page view is already sent by the snippet's `q.page()`; with npm, send it yourself after `load()`.
 
-### React Router v7
+### React and Next.js: `@fanfinity/sfere-sdk/react`
 
-```javascript
-import { useEffect } from "react";
+The package ships React bindings as a subpath (React 17+ as an optional peer; nothing React-related loads unless you import it):
+
+- `<SfereProvider writeKey host …>` takes every `load()` option plus `disabled`. It loads the SDK **once per write key + host** for the life of the page, so StrictMode, remounts and HMR never start a second queue. Options other than `writeKey` and `host` are read once; changing them later has no effect and logs a console warning. Events sent through the provider carry `context.library.binding: "react"`.
+- `useSfere()` returns that instance (`track`, `identify`, `setConsent`, …). Outside a provider it throws.
+- `usePageTracking(routeKey, { skipInitial?, name?, properties? })` sends `page()` once per distinct `routeKey`, StrictMode included. The SDK fills in url, path, title and referrer itself.
+
+React Router v7:
+
+```tsx
 import { useLocation } from "react-router-dom";
-import { SfereAnalytics } from "@fanfinity/sfere-sdk";
+import { SfereProvider, usePageTracking, useSfere } from "@fanfinity/sfere-sdk/react";
 
-const sfere = SfereAnalytics.load({
-  writeKey: "keyId:secret",
-  host: "https://ingest.example.com"
-});
-
-function usePageTracking() {
-  const { pathname } = useLocation();
-
-  useEffect(() => {
-    // page(name, properties) — the SDK fills in url, path, title and referrer itself
-    sfere.page(pathname.split("/")[1] || "home", { path: pathname });
-  }, [pathname]);
+function PageViews() {
+  const { pathname, search } = useLocation();
+  usePageTracking(pathname + search);
+  return null;
 }
 
 export default function App() {
-  usePageTracking();
-  return (/* your routes */);
+  return (
+    <SfereProvider writeKey="keyId:secret" host="https://ingest.example.com">
+      <PageViews />
+      {/* your routes */}
+    </SfereProvider>
+  );
+}
+
+function AddToCart({ item }) {
+  const sfere = useSfere();
+  return <button onClick={() => sfere.track("add_to_cart", { currency: "SAR", value: item.price, items: [item] })}>Add</button>;
 }
 ```
+
+Next.js App Router (`app/providers.tsx`, rendered from `app/layout.tsx`). The module is marked `"use client"`, so it can be imported from a client component directly. `useSearchParams()` needs a `<Suspense>` boundary:
+
+```tsx
+"use client";
+import { Suspense } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { SfereProvider, usePageTracking } from "@fanfinity/sfere-sdk/react";
+
+function PageViews() {
+  const pathname = usePathname();
+  const search = useSearchParams().toString();
+  usePageTracking(search ? `${pathname}?${search}` : pathname);
+  return null;
+}
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <SfereProvider writeKey={process.env.NEXT_PUBLIC_SFERE_WRITE_KEY!} host={process.env.NEXT_PUBLIC_SFERE_HOST!}>
+      <Suspense fallback={null}><PageViews /></Suspense>
+      {children}
+    </SfereProvider>
+  );
+}
+```
+
+Next.js Pages Router: in `_app.tsx`, wrap the page in `<SfereProvider>` and call `usePageTracking(useRouter().asPath)` from a child component.
+
+During server rendering the provider hands out an inert instance whose methods resolve to `undefined`; nothing is sent from the server. Use the React bindings or the CDN loader snippet on a page, not both: each would load its own instance. `skipInitial: true` is for apps where the first page view is already sent elsewhere.
 
 ### Vue Router
 

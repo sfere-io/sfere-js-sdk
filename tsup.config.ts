@@ -15,6 +15,9 @@ const banner = `/*! Sfere SDK v${pkg.version} | (c) Fanfinity Sports Engagement 
  * Bundles @segment/analytics-next v${aNext.version} (MIT, (c) Segment.io, Inc.) and its MIT/ISC dependencies.
  * Full license texts: THIRD_PARTY_NOTICES.md in the @fanfinity/sfere-sdk package. */`;
 
+// The React entry bundles nothing third-party: React and the SDK stay external.
+const reactBanner = `/*! Sfere SDK v${pkg.version} React bindings | (c) Fanfinity Sports Engagement Solutions Holding Ltd. All rights reserved. */`;
+
 const define = {
   __SFERE_VERSION__: JSON.stringify(pkg.version),
   __SFERE_BASE_VERSION__: JSON.stringify(aNext.version),
@@ -50,6 +53,21 @@ export default defineConfig([
     clean: true,
     define,
     banner: { js: banner },
+    tsconfig: "tsconfig.build.json",
+  },
+  // React bindings: a separate entry so the main entry never pulls in React. The SDK itself stays
+  // external (imported by package name) so apps share one module and one instance.
+  {
+    entry: { react: "src/react.ts" },
+    format: ["esm", "cjs"],
+    platform: "browser",
+    target: "es2020",
+    dts: true,
+    sourcemap: true,
+    clean: false,
+    external: ["react", "@fanfinity/sfere-sdk"],
+    define,
+    banner: { js: `${reactBanner}\n"use client";` },
     tsconfig: "tsconfig.build.json",
   },
   cdn(false),

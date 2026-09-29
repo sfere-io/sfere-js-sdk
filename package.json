@@ -23,10 +23,21 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./react": {
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.js"
+      },
+      "require": {
+        "types": "./dist/react.d.cts",
+        "default": "./dist/react.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
+    "react",
     "THIRD_PARTY_NOTICES.md"
   ],
   "sideEffects": false,
@@ -56,16 +67,28 @@
   "dependencies": {
     "@segment/analytics-next": "1.84.3"
   },
+  "peerDependencies": {
+    "react": ">=17 <20"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
     "@vitest/coverage-v8": "^5.0.2",
     "eslint": "^10.11.0",
     "globals": "^17.12.0",
     "happy-dom": "^20.14.5",
     "prettier": "^3.9.9",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1",
