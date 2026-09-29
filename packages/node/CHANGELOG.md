@@ -1,5 +1,11 @@
 # @fanfinity/sfere-node
 
+## 0.1.1
+
+### Patch Changes
+
+- e476aa0: The npm package now contains its build. 0.1.0 was published without `dist/` (the release job never built it), so it could not be imported. No code changes.
+
 ## 0.1.0
 
 ### Minor Changes
