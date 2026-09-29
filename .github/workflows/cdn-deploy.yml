@@ -186,8 +186,11 @@ jobs:
           export CDN_SMOKE_SRI="$(node -p 'JSON.parse(require("fs").readFileSync("dist/cdn/manifest.json","utf8")).files.find(f=>f.path.endsWith("sfere.min.js")).sha384')"
           npx playwright test test/e2e/specs/cdn-smoke.spec.ts
 
-      # Prereleases never move the alias (scripts/cdn-publish.sh). The query string is unique per
-      # run so the edge fetches the alias fresh instead of serving the previous version's copy.
+      # Prereleases never move the alias (scripts/cdn-publish.sh). The edge caches the alias for
+      # max-age=300 with stale-while-revalidate, and its cache key ignores query strings (seen on
+      # the 0.3.1 deploy: a cache-busted URL returned the same cached object and Age), so no URL
+      # trick bypasses it. Instead wait, bounded, until the edge serves this version's banner,
+      # then run the browser smoke against the plain alias URL a client's snippet uses.
       - name: Browser smoke test (alias URL)
         if: vars.CDN_BASE_URL != '' && !contains(inputs.version, '-')
         working-directory: ${{ env.PKG_DIR }}
@@ -200,7 +203,18 @@ jobs:
           REST="${CDN_SMOKE_VERSION#*.}"
           MINOR="${REST%%.*}"
           if [ "$MAJOR" = "0" ]; then SEGMENT="v0.${MINOR}"; else SEGMENT="v${MAJOR}"; fi
-          export CDN_SMOKE_URL="${CDN_BASE_URL%/}/sdk/${SEGMENT}/sfere.min.js?smoke=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export CDN_SMOKE_URL="${CDN_BASE_URL%/}/sdk/${SEGMENT}/sfere.min.js"
+          # 300 s max-age + one stale-while-revalidate hit, with margin.
+          DEADLINE=$(( $(date +%s) + 420 ))
+          until curl -fsS "$CDN_SMOKE_URL" | head -c 200 | grep -q "Sfere SDK v${CDN_SMOKE_VERSION} "; do
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "::error::$CDN_SMOKE_URL still does not serve v${CDN_SMOKE_VERSION} after 7 minutes"
+              exit 1
+            fi
+            echo "Edge still serves the previous alias; retrying in 20 s"
+            sleep 20
+          done
+          echo "Edge serves v${CDN_SMOKE_VERSION} at $CDN_SMOKE_URL"
           npx playwright test test/e2e/specs/cdn-smoke.spec.ts
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

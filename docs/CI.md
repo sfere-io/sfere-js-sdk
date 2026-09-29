@@ -107,7 +107,7 @@ and checks its SRI hash against `manifest.json` and its `Cache-Control` /
 `Content-Type` headers. It then runs **a browser smoke test against the live CDN**: Playwright Chromium runs `test/e2e/specs/cdn-smoke.spec.ts`, which loads the published bundle and must deliver a `track` to the mock ingestion host.
 
 1. **The immutable URL**, loaded with `<script integrity crossorigin>` using the manifest's SRI. This fails fast on an SRI, CORS or HTTP error.
-2. **The alias URL** the loader snippet uses (skipped for prereleases). It carries a per-run query string so the edge cache is bypassed, and it must report the deployed `context.library.version`.
+2. **The alias URL** the loader snippet uses (skipped for prereleases). The edge caches the alias for up to 5 minutes and ignores query strings in its cache key, so the step first waits (at most 7 minutes) until the edge serves the new version, then requires the deployed `context.library.version`.
 
 On failure, the `cdn-smoke-report` artifact is uploaded. Run the smoke test against production by hand:
 
