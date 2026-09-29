@@ -45,6 +45,12 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: "@fanfinity"
       - run: npm ci
+      # Build here: `changeset publish` packs whatever is on disk, and dist/ is
+      # gitignored. Without this step every npm release up to sfere-sdk 0.3.1 and
+      # sfere-node 0.1.0 shipped without dist/ (the CI gate builds on a different
+      # runner). Each package's prepublishOnly also refuses to publish unbuilt.
+      - name: Build
+        run: npm run build
 
       # changesets/action v2 (requires @changesets/cli v3, which package.json
       # pins). `version-script` runs when there are pending changesets: bumps
@@ -108,6 +114,18 @@ jobs:
               echo "::error::$NAME@$V is not on the registry after the publish step."
               exit 1
             fi
+            # The registry's copy must be complete: fetch it back and require its
+            # entry points (the release that shipped without dist/ passed every
+            # other check).
+            SCRATCH="$(mktemp -d)"
+            (cd "$SCRATCH" && npm pack "$NAME@$V" --json > pack.json)
+            for f in dist/index.js dist/index.cjs dist/index.d.ts; do
+              if ! node -e "process.exit(require('$SCRATCH/pack.json')[0].files.some(x => x.path === '$f') ? 0 : 1)"; then
+                echo "::error::$NAME@$V on the registry has no $f: the published package is broken."
+                exit 1
+              fi
+            done
+            echo "Registry copy of $NAME@$V contains its dist/ entry points."
             git tag "$TAG" HEAD
             git push origin "$TAG"
             echo "Released $NAME@$V as $TAG." >> "$GITHUB_STEP_SUMMARY"

@@ -57,7 +57,8 @@
     "test:e2e": "playwright test",
     "size": "node scripts/size-check.mjs",
     "verify": "node scripts/verify-dist.mjs",
-    "cdn:manifest": "node scripts/cdn-manifest.mjs"
+    "cdn:manifest": "node scripts/cdn-manifest.mjs",
+    "prepublishOnly": "node -e \"for (const f of ['dist/index.js','dist/index.cjs','dist/index.d.ts']) require('node:fs').accessSync(f)\" || (echo 'refusing to publish: dist/ is not built (run npm run build)' >&2; exit 1)"
   },
   "dependencies": {
     "@segment/analytics-next": "1.84.3"
