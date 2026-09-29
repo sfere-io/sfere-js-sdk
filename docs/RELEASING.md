@@ -58,6 +58,16 @@ Two things worth knowing about that PR:
   token, so the Version Packages PR itself shows **no CI checks**. Nothing is
   lost: merging it pushes to `main`, and `release.yml` runs the full `ci.yml`
   gate before it publishes anything.
+- **`main` requires `check` and `e2e` on every PR** (ruleset "protect main",
+  2026-09-29), so that PR shows as blocked. An org admin merges it through the
+  ruleset's pull-request bypass:
+
+  ```sh
+  gh pr merge <number> --merge --admin
+  ```
+
+  Only use `--admin` on the Version Packages PR. Every other PR merges once its
+  checks are green.
 - The setting **"Allow GitHub Actions to create and approve pull requests"**
   must be on at both the organisation level and the repository level (Actions →
   General), or the action cannot open it. Both are on as of 2026-09-28.

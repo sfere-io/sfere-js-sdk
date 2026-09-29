@@ -89,7 +89,7 @@ Each batch item needs `type`. A top-level `context` applies to every item.
 | `event` | `track` | GA4 name, at most 128 characters ([EVENTS.md](EVENTS.md)) |
 | `timestamp` | no | ISO 8601. Defaults to the time Sfere received the event |
 | `properties`, `traits` | no | Plain values. Do **not** hash email or phone; Sfere hashes per destination |
-| `context.ip`, `context.userAgent` | **yes, from a backend** | The end user's, from the original request. Without them, ad-platform matching uses your server's address |
+| `context.ip`, `context.userAgent` | **yes, from a backend** | The end user's, from the original request. Sfere never fills them in for server events, so without them ad-platform matching has no IP or browser to go on |
 | `context.clientIds` | recommended | Ad-platform identifiers from the visitor's cookies (`_fbp` → `fbp`, `_fbc` → `fbc`, `_ttp` → `ttp`, …) and landing URL (`gclid`, `ttclid`, …). Key list: [WIRE-CONTRACT.md §4](WIRE-CONTRACT.md#4-sfere-context-fields) |
 | `properties.sfere_dedup_id` | for events also sent from the browser | Use the same value on both sides so destinations count the conversion once |
 
@@ -101,6 +101,6 @@ Keep payloads flat and predictable. Every distinct property name becomes a colum
 |---|---|---|
 | `/api/s/s2s/{type}` | `200` | `401` for an invalid key, `400` for a malformed body. Retry only `429` and `5xx` |
 | `/api/s/{type}` (browser key) | `200 {"ok":true}` | HTTP `200` with an error message in the body; read the body |
-| `/v1/batch` | `200 {"ok":true,"receivedEvents":2,"okEvents":2}` | `okEvents` lower than `receivedEvents` means some events were rejected |
+| `/v1/batch` | `200 {"ok":true,"receivedEvents":2,"okEvents":2}` | `401` for an invalid key. `okEvents` lower than `receivedEvents` means some events were rejected |
 
 Bodies over 1 MB are rejected.
