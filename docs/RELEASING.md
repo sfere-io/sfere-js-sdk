@@ -45,8 +45,10 @@ reminder, not an automated gate.
    The publish job builds every package first (`npm run build`); each
    package's `prepublishOnly` also refuses to publish without `dist/`.
    Releases up to `sfere-sdk` 0.3.1 and `sfere-node` 0.1.0 were published
-   **without `dist/`** (no build in this job), so those npm versions are
-   unusable; the CDN was never affected. Use 0.3.2+ / 0.1.1+.
+   **without `dist/`** (no build in this job); the CDN was never affected.
+   Those versions (`sfere-sdk` 0.1.0, 0.2.0, 0.3.0, 0.3.1 and `sfere-node`
+   0.1.0) were deleted from GitHub Packages on 2026-09-29. The earliest
+   installable versions are `sfere-sdk` 0.3.2 and `sfere-node` 0.1.1.
 3. Before tagging, the release downloads each newly published version back
    from the registry and fails unless it contains its `dist/` entry points.
    Each package published gets a tag: `vX.Y.Z` for the browser SDK,
