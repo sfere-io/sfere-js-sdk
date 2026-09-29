@@ -113,7 +113,9 @@ describe("SfereAnalytics", () => {
     expect(mock.received.map((r) => r.body.batch.length)).toEqual([2, 2]);
   });
 
-  it("retries 5xx and 429, then delivers", async () => {
+  // Real backoff, not mocked: random(1..2) x 500 ms x 2^attempt, so two retries take up to ~6 s,
+  // past vitest's 5 s default (it failed that way on a CI runner).
+  it("retries 5xx and 429, then delivers", { timeout: 20_000 }, async () => {
     mock.respond.push(503, 429);
     const sfere = client({ maxRetries: 3 });
     sfere.track({ userId: "u1", event: "retry_me" });
