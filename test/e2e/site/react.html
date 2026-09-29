@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>react harness</title>
+  </head>
+  <body>
+    <!--
+      React bindings harness: the app in ../react-app.tsx, bundled by global-setup.ts from the built
+      dist/react.js. ?mode=dev loads the development build (StrictMode double effects), anything
+      else the production build.
+    -->
+    <div id="root"></div>
+    <script type="module">
+      const mode = new URLSearchParams(location.search).get("mode") === "dev" ? "dev" : "prod";
+      import(`/react/${mode}`);
+    </script>
+  </body>
+</html>

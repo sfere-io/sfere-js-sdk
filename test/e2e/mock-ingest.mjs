@@ -320,6 +320,21 @@ const siteServer = createServer((req, res) => {
     return;
   }
 
+  if (pathname === "/react/dev" || pathname === "/react/prod") {
+    const bundlePath = join(tmpDir, `react-${pathname.slice("/react/".length)}`);
+    if (!existsSync(bundlePath)) {
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end(`${bundlePath} is missing; global-setup did not run.`);
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
+    res.end(readFileSync(bundlePath));
+    return;
+  }
+
+  // Client-side routes of the React harness: a reload of /shop/* serves the same page.
+  if (pathname.startsWith("/shop/")) pathname = "/react.html";
+
   if (pathname === "/") pathname = "/generic.html";
 
   const safePath = normalize(pathname).replace(/^(\.\.[/\\])+/, "");
