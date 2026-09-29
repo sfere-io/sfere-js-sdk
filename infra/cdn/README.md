@@ -156,3 +156,8 @@ that part is not merely idempotent but actively syncs config changes; the
   (`attributeCondition: assertion.repository_owner == 'fanfinity'`). The deploy
   service account is additionally bound to `fanfinity/sfere-sdk` alone. A fork
   or a repo under another owner cannot deploy.
+
+## Cache invalidation after an alias move
+
+`cdn-deploy.yml` invalidates `/sdk/<alias>/*` right after moving an alias, so the edge serves the new version at once. Without it, serve-while-stale kept the old alias for about 8 minutes on the 0.3.2 deploy. The deploy account holds `sfereSdkCdnInvalidator` (`compute.urlMaps.invalidateCache` + `compute.urlMaps.get`) through a project binding. Its IAM condition limits it to `projects/koratona-9791a/global/urlMaps/sfere-sdk-cdn-lb`. Invalidation only purges cache; it cannot change content or routing. Provisioned 2026-09-29.
+

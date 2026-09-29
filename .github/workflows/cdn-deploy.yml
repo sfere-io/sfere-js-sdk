@@ -125,6 +125,28 @@ jobs:
         env:
           CDN_BUCKET: ${{ vars.CDN_BUCKET }}
 
+      # Purge the alias from the edge so it serves the new version at once (serve-while-stale kept
+      # the old alias ~8 minutes on the 0.3.2 deploy). The deploy SA may invalidate only this URL
+      # map (infra/cdn/provision.sh). A failure here only costs time: the alias smoke below still
+      # waits for the edge, so it warns instead of failing the deploy.
+      - name: Invalidate the alias on the CDN
+        if: vars.CDN_BASE_URL != '' && !contains(inputs.version, '-')
+        env:
+          CDN_URL_MAP: ${{ vars.CDN_URL_MAP || 'sfere-sdk-cdn-lb' }}
+          CDN_PROJECT: ${{ vars.GCP_PROJECT_ID }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          MAJOR="${VERSION%%.*}"
+          REST="${VERSION#*.}"
+          MINOR="${REST%%.*}"
+          if [ "$MAJOR" = "0" ]; then SEGMENT="v0.${MINOR}"; else SEGMENT="v${MAJOR}"; fi
+          if gcloud compute url-maps invalidate-cdn-cache "$CDN_URL_MAP" --global --async \
+               --project="$CDN_PROJECT" --path="/sdk/${SEGMENT}/*"; then
+            echo "Invalidated /sdk/${SEGMENT}/* on $CDN_URL_MAP." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::CDN invalidation of /sdk/${SEGMENT}/* failed; the alias smoke will wait for the edge instead."
+          fi
+
       - name: Smoke-test the public URL
         if: vars.CDN_BASE_URL != ''
         env:

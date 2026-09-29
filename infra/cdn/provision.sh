@@ -51,6 +51,7 @@ GITHUB_REPO="${GITHUB_REPO:-fanfinity/sfere-sdk}"
 
 CUSTOM_ROLE_ID="${CUSTOM_ROLE_ID:-sfereSdkCdnPublicReader}"
 ALIAS_ROLE_ID="${ALIAS_ROLE_ID:-sfereSdkCdnAliasOverwriter}"
+INVALIDATE_ROLE_ID="${INVALIDATE_ROLE_ID:-sfereSdkCdnInvalidator}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -232,6 +233,25 @@ run_idempotent gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
   --project="$PROJECT" \
   --role=roles/iam.workloadIdentityUser \
   --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WIF_POOL}/attribute.repository/${GITHUB_REPO}"
+
+echo
+echo "--- CDN cache invalidation: the SDK URL map only ---"
+# After an alias moves, cdn-deploy.yml invalidates /sdk/<alias>/* so the edge serves the new
+# version at once (without it, serve-while-stale kept the old alias ~8 minutes on the 0.3.2
+# deploy). Invalidation is only a cache purge: it cannot change content or routing. The role holds
+# the two permissions `gcloud compute url-maps invalidate-cdn-cache --async` needs, and the
+# binding's condition limits it to this one URL map, not every load balancer in the project.
+run_idempotent gcloud iam roles create "$INVALIDATE_ROLE_ID" \
+  --project="$PROJECT" \
+  --title="Sfere SDK CDN cache invalidator" \
+  --description="compute.urlMaps.invalidateCache + get; bound to the deploy SA with a condition on the SDK CDN URL map." \
+  --permissions=compute.urlMaps.invalidateCache,compute.urlMaps.get \
+  --stage=GA
+
+run_idempotent gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${DEPLOY_SA}" \
+  --role="projects/${PROJECT}/roles/${INVALIDATE_ROLE_ID}" \
+  --condition="expression=resource.name == \"projects/${PROJECT}/global/urlMaps/${URL_MAP}\",title=sfere-sdk-cdn-invalidate,description=Cache invalidation on the SDK CDN URL map only"
 
 echo
 echo "--- Backend bucket + Cloud CDN ---"
