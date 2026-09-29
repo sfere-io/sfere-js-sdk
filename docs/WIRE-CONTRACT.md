@@ -30,7 +30,13 @@ Every SDK sends the Basic header, and batch SDKs also put the key in the body.
 | Browser key | web pages, mobile apps, the web tag template | Public by design. It is visible in the page, so it grants ingest only |
 | Server key | Node, Python, server tag container, backend HTTP calls | Secret. Never ship it in a page or an app binary |
 
-**UNVERIFIED:** whether a browser key on `/v1/batch` is treated as browser or server ingest. This decides how `context.ip` is filled (§4) and which error codes come back (§6). Test it against staging before the server SDKs ship, and record the answer here.
+**The key type decides the ingest type, not the path** (verified on staging, 2026-09-29, with a server key). A server key was treated as server ingest (`ingestType: s2s`) on every path:
+- `/api/s/s2s/{type}`;
+- `/api/s/{type}` (the browser path);
+- `/v1/batch`, with the key in Basic auth or only in the body;
+- `/v1/batch/b`.
+
+Still untested: a *browser* key on `/v1/batch`. The browser SDK's batching mode uses that path, and it already works on the wire (spike config C).
 
 ## 3. Event envelope
 
@@ -58,7 +64,7 @@ Standard fields: `type`, `messageId`, `anonymousId`, `userId`, `timestamp`, `con
 | `context.session.id` | live: epoch ms, rotates after 30 min of inactivity | optional: forward the browser's | planned: same rule, app foreground counts as activity | Number |
 | `context.consent.categoryPreferences` | live: `setConsent()` | planned: forwarded from the browser | planned: `setConsent()` | `{ advertising: bool, analytics: bool, … }`; omitted when unknown |
 | `context.library` | live | planned | planned | `{ name: "@fanfinity/sfere-<sdk>", version, base: "<underlying library>@<version>" }`. A framework binding adds `binding` (live: `"react"`) and leaves `name` as its SDK's |
-| `context.ip`, `context.userAgent` | filled by the ingestion endpoint | **required**: the end user's, forwarded from the original request | filled by the endpoint / the SDK | Without them, server events match on the server's IP |
+| `context.ip`, `context.userAgent` | filled by the ingestion endpoint | **required**: the end user's, forwarded from the original request | filled by the endpoint / the SDK | Server ingest **keeps whatever `context.ip` the sender sets** and **never fills a missing one**. It records the caller's address separately, as top-level `requestIp`. The CAPI destinations read only `context.ip`, so a server event without it reaches ad platforms with **no IP at all**, and loses that match signal (verified 2026-09-29) |
 | `context.page.url`, `.referrer`, `.lang` | live | planned: from the incoming request | n/a | |
 | `context.campaign` | live: `utm_*` + `gad_source`, `gad_campaignid` | planned: from the request URL | planned: from the deep link | |
 | `context.device.advertisingId`, `context.device.adTrackingEnabled` | n/a | n/a | planned | IDFA only after ATT authorisation; GAID only when the advertising consent category is granted. Otherwise omit, never send zeros |
@@ -77,9 +83,9 @@ Standard fields: `type`, `messageId`, `anonymousId`, `userId`, `timestamp`, `con
 
 | Path | Success | Failure |
 |---|---|---|
-| browser single-event | `200 {"ok":true}` | **also HTTP 200**, with an error in the body. Rejected browser events are not retried by status code |
+| browser key, single event | `200 {"ok":true}` | **also HTTP 200**, with an error in the body. Rejected browser events are not retried by status code |
+| server key, any path | `200 {"ok":true}`, or on batch `{"ok":true,"okEvents":n,"receivedEvents":n}` | `401 {"error":"stream not found: …"}` for an unknown key (on `/v1/batch` too); `400` for malformed JSON or a `track` without `event` (verified 2026-09-29) |
 | batch | `200 {"ok":true,"receivedEvents":n,"okEvents":n}` | `okEvents < receivedEvents` means some were rejected |
-| server (`s2s`) | `200` | `4xx` (`401` bad key, `400` bad body) |
 
 ## 7. Naming
 
