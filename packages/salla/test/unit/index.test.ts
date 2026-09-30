@@ -11,7 +11,7 @@ import {
   type SallaGlobal,
   type SallaTracker,
 } from "../../src/index";
-import { readConfig } from "../../src/config";
+import { readConfig, readRemoteConfig } from "../../src/config";
 
 type Call = [string, ...unknown[]];
 type Win = Window & {
@@ -67,6 +67,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("config", () => {
@@ -475,5 +476,143 @@ describe("debug logging", () => {
     win.Salla = mockSalla().salla;
     install(window, configured());
     expect(log).not.toHaveBeenCalled();
+  });
+});
+
+describe("per-store config (data-config-url)", () => {
+  const CONFIG_URL = "https://api.example.com/salla/tracker-config";
+  const remoteTag = (extra: Record<string, string> = {}) =>
+    tag({ "data-config-url": CONFIG_URL, ...extra });
+  const reply = (body: unknown, status = 200) =>
+    Promise.resolve(new Response(JSON.stringify(body), { status }));
+  const flush = async () => {
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+  };
+  const good = { write_key: "store-key", host: `${HOST}/` };
+
+  beforeEach(() => {
+    sessionStorage.clear();
+    win.Salla = mockSalla().salla;
+  });
+
+  it("reads the URL from the attribute or the query, and only http(s)", () => {
+    expect(readRemoteConfig(remoteTag())?.configUrl).toBe(CONFIG_URL);
+    const src = `https://cdn.sfere.io/x.js?config_url=${encodeURIComponent(CONFIG_URL)}`;
+    expect(readRemoteConfig(tag({}, src))?.configUrl).toBe(CONFIG_URL);
+    expect(readRemoteConfig(tag({ "data-config-url": "javascript:alert(1)" }))).toBeUndefined();
+    expect(readRemoteConfig(tag({}))).toBeUndefined();
+  });
+
+  it("fetches the store's key, caches it, then loads the SDK as usual", async () => {
+    const fetchMock = vi.fn(() => reply(good));
+    vi.stubGlobal("fetch", fetchMock);
+    const integration = install(window, remoteTag());
+    expect(integration?.config).toBeUndefined();
+    expect(sdkScript()).toBeNull();
+    await flush();
+    expect(fetchMock).toHaveBeenCalledWith(`${CONFIG_URL}?store_id=42`, { credentials: "omit" });
+    expect(sdkScript()?.getAttribute("data-write-key")).toBe("store-key");
+    expect(sdkScript()?.getAttribute("data-host")).toBe(HOST);
+    expect(sdkScript()?.src).toBe(SDK_SRC);
+    expect(queue().map((c) => c[0])).toContain("page");
+    expect(JSON.parse(sessionStorage.getItem("sfere_salla_cfg_42") ?? "{}")).toEqual({
+      write_key: "store-key",
+      host: HOST,
+    });
+  });
+
+  it("prefers data-store-id over the storefront's store id", async () => {
+    const fetchMock = vi.fn(() => reply(good));
+    vi.stubGlobal("fetch", fetchMock);
+    install(window, remoteTag({ "data-store-id": "7" }));
+    await flush();
+    expect(fetchMock).toHaveBeenCalledWith(`${CONFIG_URL}?store_id=7`, expect.anything());
+  });
+
+  it("uses the session cache without fetching", async () => {
+    sessionStorage.setItem("sfere_salla_cfg_42", JSON.stringify(good));
+    const fetchMock = vi.fn(() => reply(good));
+    vi.stubGlobal("fetch", fetchMock);
+    install(window, remoteTag());
+    await flush();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(sdkScript()?.getAttribute("data-write-key")).toBe("store-key");
+  });
+
+  it("ignores a corrupt cache entry and blocked storage", async () => {
+    sessionStorage.setItem("sfere_salla_cfg_42", "{nope");
+    const fetchMock = vi.fn(() => reply(good));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    install(window, remoteTag());
+    await flush();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sdkScript()?.getAttribute("data-write-key")).toBe("store-key");
+  });
+
+  it("does nothing on a 404", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    win.SFERE_DEBUG = true;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => reply({}, 404)),
+    );
+    expect(() => install(window, remoteTag())).not.toThrow();
+    await flush();
+    expect(win.sfere).toBeUndefined();
+    expect(sdkScript()).toBeNull();
+    expect(sessionStorage.length).toBe(0);
+    expect(log).toHaveBeenCalledWith("[Sfere]", "config lookup failed", 404);
+    expect(
+      (win.Salla as ReturnType<typeof mockSalla>["salla"]).analytics.registerTracker,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("does nothing on a network error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new TypeError("offline"))),
+    );
+    install(window, remoteTag());
+    await flush();
+    expect(win.sfere).toBeUndefined();
+    expect(sdkScript()).toBeNull();
+  });
+
+  it.each([
+    ["a non-http host", { write_key: "k", host: "javascript:alert(1)" }],
+    ["a host without a scheme", { write_key: "k", host: "ingest.example.com" }],
+    ["no write key", { host: HOST }],
+    ["a non-object body", "nope"],
+  ])("rejects %s", async (_label, body) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => reply(body)),
+    );
+    install(window, remoteTag());
+    await flush();
+    expect(win.sfere).toBeUndefined();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it("does nothing without any store id", async () => {
+    win.Salla = mockSalla({}).salla;
+    const fetchMock = vi.fn(() => reply(good));
+    vi.stubGlobal("fetch", fetchMock);
+    install(window, remoteTag());
+    await flush();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(win.sfere).toBeUndefined();
+  });
+
+  it("a static write key wins and never fetches", () => {
+    const fetchMock = vi.fn(() => reply(good));
+    vi.stubGlobal("fetch", fetchMock);
+    const integration = install(window, configured({ "data-config-url": CONFIG_URL }));
+    expect(integration?.config?.writeKey).toBe("wk");
+    expect(sdkScript()?.getAttribute("data-write-key")).toBe("wk");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

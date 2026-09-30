@@ -29,7 +29,7 @@ Salla's App Snippet field takes **JavaScript, not HTML**. Salla rejects a `<scri
 ```
 
 - **Use the immutable URL with SRI** (`/v0.1.0/`), as [CDN-POLICY.md](../../docs/CDN-POLICY.md) requires. Take the hash from that version's `manifest.json`, or from the `<script>` line `npm run cdn:manifest` prints. `crossOrigin = "anonymous"` is required, or the browser skips the integrity check. The alias `/integrations/salla/v0.1/` follows the latest 0.1.x. Use it only without an `integrity`, and only on a store you can afford to have change under you.
-- **`YOUR_BROWSER_WRITE_KEY`** is the ingest-only browser key. It is public by design, because every visitor's browser sees it. It still lives only in the portal and never in this repository. Staging uses **one browser key for all stores**; see [Per-store write keys](#per-store-write-keys) for the follow-up.
+- **`YOUR_BROWSER_WRITE_KEY`** is the ingest-only browser key. It is public by design, because every visitor's browser sees it. It still lives only in the portal and never in this repository. Staging uses **one browser key for all stores**; for a key per store, use the [multi-tenant snippet](#multi-tenant-snippet-a-key-per-store).
 - **`{{store.id}}`** is a Salla snippet template parameter. It is optional: the integration reads the store id from `Salla.config` first. If the value reaches the page unrendered (it still contains `{{`), it is ignored.
 
 ## Configuration
@@ -40,12 +40,13 @@ Each option is read from a `data-*` attribute on the loading tag first. If the a
 |---|---|---|---|
 | `data-write-key` | `write_key` | yes | Browser write key. |
 | `data-host` | `host` | yes | Ingestion endpoint, `https://...`. Trailing `/` is stripped. |
-| `data-store-id` | `store_id` | no | Fallback store id, used when `Salla.config` has none. |
+| `data-config-url` | `config_url` | no | Per-store lookup endpoint. Used only when there is no `data-write-key`; see [Multi-tenant snippet](#multi-tenant-snippet-a-key-per-store). |
+| `data-store-id` | `store_id` | no | Store id. With `data-config-url` it is the lookup id and wins over `Salla.config`; otherwise a fallback used when `Salla.config` has none. |
 | `data-sdk-src` | `sdk_src` | no | Load a different SDK build, for testing only. With an override, SRI is set only if `data-sdk-integrity` is given. |
 | `data-sdk-integrity` | `sdk_integrity` | no | SRI hash for `data-sdk-src`. |
 | `data-debug` | `debug` | no | `true` or `1`: log `[Sfere] ...` lines. |
 
-Without a write key and an `http(s)` host, the script does nothing. It never throws into the storefront.
+Without a write key and an `http(s)` host (or a `data-config-url`), the script does nothing. It never throws into the storefront.
 
 **SDK pin.** By default the script loads `https://cdn.sfere.io/sdk/v0.3.2/sfere.min.js` with that build's SRI hash (`src/config.ts`). That is an immutable URL, so the SDK a store runs changes only when a new integration version ships. It is not the 0.1 line: 0.1.x does not carry `identify` traits onto later events. To move the pin, update `SDK_VERSION`, `SDK_SRC` and `SDK_INTEGRITY` from the new SDK version's `manifest.json`, and ship a new integration version.
 
@@ -74,7 +75,7 @@ Consent is not wired. Salla exposes no consent API that we have verified, so not
 | Immutable | `https://cdn.sfere.io/integrations/salla/v{X.Y.Z}/sfere-salla.min.js` (+ `manifest.json`) |
 | Alias | `https://cdn.sfere.io/integrations/salla/v0.{minor}/sfere-salla.min.js` (+ `manifest.json`) |
 
-These URLs follow the same caching, immutability and rollback rules as `/sdk/` ([CDN-POLICY.md](../../docs/CDN-POLICY.md)). `package.json`'s `sfereCdn` block tells the shared scripts in `packages/browser/scripts/` (`cdn-manifest.mjs`, `cdn-publish.sh`, `size-check.mjs`) what to do: the path prefix, the file list, the entry and the gzip budget (2,350 B, the 0.1.0 measurement plus about 10%).
+These URLs follow the same caching, immutability and rollback rules as `/sdk/` ([CDN-POLICY.md](../../docs/CDN-POLICY.md)). `package.json`'s `sfereCdn` block tells the shared scripts in `packages/browser/scripts/` (`cdn-manifest.mjs`, `cdn-publish.sh`, `size-check.mjs`) what to do: the path prefix, the file list, the entry and the gzip budget (2,850 B: the measurement with the per-store config lookup, 2,573 B, plus about 10%).
 
 **Releasing.** Add a changeset for `@fanfinity/sfere-salla` and merge. When the Version Packages PR merges, `release.yml` tags `@fanfinity/sfere-salla@X.Y.Z`, and `cdn-deploy.yml` (`target: salla`) publishes it. Rollback:
 
@@ -84,14 +85,34 @@ gh workflow run cdn-deploy.yml --ref main -f target=salla -f version=<X.Y.Z> -f 
 
 Before the **second** release on an alias line, re-run `infra/cdn/provision.sh` with that line in `CDN_ALIASES`, e.g. `CDN_ALIASES="v0.1 v0.2 v0.3 v0.4 integrations/salla/v0.1"`. The first release only creates the alias objects. The second overwrites them, which needs the conditioned delete grant. See [RELEASING.md](../../docs/RELEASING.md).
 
-## Per-store write keys
+## Multi-tenant snippet: a key per store
 
-For now one browser key serves every store, and `store_id` on each event tells the stores apart. That is the staging default. To give each store its own key, one of these is needed:
+The App Snippet is one static script for every merchant, so a per-store browser key cannot be pasted into it. Point the script at a config endpoint instead. It looks the key up at runtime, per store:
 
-- A per-store value that Salla can render into the snippet, as a template parameter like `{{store.id}}`. The value would be the key, or a lookup key. This is only possible if Salla supports app-settings parameters in snippets, which is not verified.
-- A small key-lookup endpoint that maps a store id to its key. The script would fetch it before it loads the SDK.
+```js
+(function (d) {
+  if (d.querySelector("script[data-sfere-salla]")) return;
+  var s = d.createElement("script");
+  s.async = true;
+  s.src = "https://cdn.sfere.io/integrations/salla/v0.1.0/sfere-salla.min.js";
+  s.integrity = "sha384-<files[0].sha384 from https://cdn.sfere.io/integrations/salla/v0.1.0/manifest.json>";
+  s.crossOrigin = "anonymous";
+  s.setAttribute("data-sfere-salla", "");
+  s.setAttribute("data-config-url", "https://YOUR_BACKEND_HOST/salla/tracker-config");
+  s.setAttribute("data-store-id", "{{store.id}}");
+  (d.head || d.documentElement).appendChild(s);
+})(document);
+```
 
-Neither is built. The script's config surface (`data-write-key` per tag) already supports both.
+There is no `data-write-key` or `data-host` here. How it works:
+
+1. The script takes the store id from `data-store-id` (the Salla template parameter `{{store.id}}`), else from `Salla.config.get('store.id')`, once the storefront is ready.
+2. It reads `sessionStorage` (`sfere_salla_cfg_<store id>`). On a miss it does `GET <data-config-url>?store_id=<id>` (no credentials) and expects `{"write_key": "...", "host": "https://..."}`. A good reply is cached for the session.
+3. It then loads the SDK and registers the tracker exactly as with a static key. The store id is on every event as before.
+
+Failure is silent. A 404 (a store with no key), a network error, or a reply without a `write_key` or with a host that is not `http(s)` leaves the script inert, with a `[Sfere]` line only in debug mode. Storage that throws is tolerated: the script fetches again on the next page. The endpoint is `GET /salla/tracker-config?store_id=` in the backend. It is public, and browser keys are public by design. It must allow cross-origin `GET` from storefront origins (CORS) and should be cacheable.
+
+A static `data-write-key` always wins: with it, `data-config-url` is ignored and nothing is fetched. Use that for staging and single-tenant installs. A CSP needs `connect-src` for the config host as well as the ingestion host.
 
 ## Known gaps
 

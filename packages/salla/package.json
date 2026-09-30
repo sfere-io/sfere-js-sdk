@@ -12,7 +12,7 @@
     ],
     "entry": "sfere-salla.min.js",
     "banner": "Sfere Salla integration",
-    "gzipBudget": 2350
+    "gzipBudget": 2850
   },
   "scripts": {
     "clean": "node -e \"for (const d of ['dist','coverage']) require('node:fs').rmSync(d,{recursive:true,force:true})\"",

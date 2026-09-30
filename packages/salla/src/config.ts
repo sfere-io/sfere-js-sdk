@@ -40,14 +40,17 @@ function queryOf(script: HTMLScriptElement | null): URLSearchParams {
   }
 }
 
-/**
- * Reads the config from the loading `<script>`: `data-*` attributes first, then the query string
- * of its `src`. Nothing is baked in at build time: one App Snippet serves every store. Returns
- * undefined (and the integration stays inert) without a write key and an http(s) host.
- */
-export function readConfig(script: HTMLScriptElement | null): SallaIntegrationConfig | undefined {
+const HTTP_ORIGIN = /^https?:\/\/[^/]/i;
+
+/** Normalises a host: trimmed, no trailing slashes, and only http(s). */
+export function cleanHost(value: unknown): string | undefined {
+  const host = str(value)?.replace(/\/+$/, "");
+  return host && HTTP_ORIGIN.test(host) ? host : undefined;
+}
+
+function picker(script: HTMLScriptElement | null) {
   const query = queryOf(script);
-  const pick = (attr: string, ...params: string[]): string | undefined => {
+  return (attr: string, ...params: string[]): string | undefined => {
     const fromAttr = str(script?.getAttribute(`data-${attr}`));
     if (fromAttr) return fromAttr;
     for (const p of params) {
@@ -56,23 +59,50 @@ export function readConfig(script: HTMLScriptElement | null): SallaIntegrationCo
     }
     return undefined;
   };
+}
 
-  const writeKey = pick("write-key", "write_key", "writeKey");
-  const host = pick("host", "host")?.replace(/\/+$/, "");
+type Pick = ReturnType<typeof picker>;
+
+function common(pick: Pick): Omit<SallaIntegrationConfig, "writeKey" | "host"> {
   const debugValue = pick("debug", "debug", "sfere_debug");
-  const debug = debugValue === "true" || debugValue === "1";
-  if (!writeKey || !host || !/^https?:\/\/[^/]/i.test(host)) return undefined;
-
   const override = pick("sdk-src", "sdk_src");
-  const config: SallaIntegrationConfig = {
-    writeKey,
-    host,
+  const config: Omit<SallaIntegrationConfig, "writeKey" | "host"> = {
     sdkSrc: override ?? SDK_SRC,
-    debug,
+    debug: debugValue === "true" || debugValue === "1",
   };
   const integrity = override ? pick("sdk-integrity", "sdk_integrity") : SDK_INTEGRITY;
   if (integrity) config.sdkIntegrity = integrity;
   const storeId = pick("store-id", "store_id");
   if (storeId) config.storeId = storeId;
   return config;
+}
+
+/**
+ * Reads the config from the loading `<script>`: `data-*` attributes first, then the query string
+ * of its `src`. Nothing is baked in at build time: one App Snippet serves every store. Returns
+ * undefined (and the integration stays inert) without a write key and an http(s) host.
+ */
+export function readConfig(script: HTMLScriptElement | null): SallaIntegrationConfig | undefined {
+  const pick = picker(script);
+  const writeKey = pick("write-key", "write_key", "writeKey");
+  const host = cleanHost(pick("host", "host"));
+  if (!writeKey || !host) return undefined;
+  return { writeKey, host, ...common(pick) };
+}
+
+/** Per-store lookup: the tag names a config endpoint instead of carrying a key. */
+export type RemoteConfig = Omit<SallaIntegrationConfig, "writeKey" | "host"> & {
+  configUrl: string;
+};
+
+/**
+ * `data-config-url` (or `config_url`), used only when the tag has no `data-write-key`: a static
+ * key always wins. Returns undefined without an http(s) config URL.
+ */
+export function readRemoteConfig(script: HTMLScriptElement | null): RemoteConfig | undefined {
+  const pick = picker(script);
+  if (pick("write-key", "write_key", "writeKey")) return undefined;
+  const configUrl = pick("config-url", "config_url", "configUrl");
+  if (!configUrl || !HTTP_ORIGIN.test(configUrl)) return undefined;
+  return { configUrl, ...common(pick) };
 }

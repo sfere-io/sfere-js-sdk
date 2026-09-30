@@ -15,10 +15,17 @@
  *
  * Never throws into the storefront. Logs only with a debug flag, always prefixed "[Sfere]".
  */
-import { readConfig, str, type SallaIntegrationConfig } from "./config";
+import {
+  cleanHost,
+  readConfig,
+  readRemoteConfig,
+  str,
+  type RemoteConfig,
+  type SallaIntegrationConfig,
+} from "./config";
 
-export { readConfig, SDK_INTEGRITY, SDK_SRC, SDK_VERSION } from "./config";
-export type { SallaIntegrationConfig } from "./config";
+export { readConfig, readRemoteConfig, SDK_INTEGRITY, SDK_SRC, SDK_VERSION } from "./config";
+export type { RemoteConfig, SallaIntegrationConfig } from "./config";
 
 declare const __SFERE_SALLA_VERSION__: string | undefined;
 
@@ -58,9 +65,13 @@ type Win = Window & {
 };
 
 export interface Integration {
-  config: SallaIntegrationConfig;
+  /** The static config, or undefined while a per-store config is still to be fetched. */
+  config: SallaIntegrationConfig | undefined;
   tracker: SallaTracker;
 }
+
+/** sessionStorage key for a store's fetched config. */
+export const CONFIG_CACHE_PREFIX = "sfere_salla_cfg_";
 
 /**
  * Boots the integration against `win`, configured by the loading `script` tag. Returns undefined
@@ -70,6 +81,7 @@ export function install(win: Window, script: HTMLScriptElement | null): Integrat
   const w = win as Win;
   const doc = win.document;
   const fromTag = readConfig(script);
+  const remote = fromTag ? undefined : readRemoteConfig(script);
 
   const debug = (): boolean => {
     try {
@@ -93,11 +105,11 @@ export function install(win: Window, script: HTMLScriptElement | null): Integrat
     log("already installed");
     return undefined;
   }
-  if (!fromTag) {
+  if (!fromTag && !remote) {
     log("not configured: data-write-key and an http(s) data-host are required");
     return undefined;
   }
-  const config = fromTag;
+  let config = fromTag;
   w.SfereSalla = { version };
 
   const salla = (): SallaGlobal | undefined => w.Salla ?? w.salla;
@@ -111,7 +123,7 @@ export function install(win: Window, script: HTMLScriptElement | null): Integrat
   };
 
   /** Inject the SDK once; reuse a `window.sfere` the store already has (stub or instance). */
-  const loadSfere = (): void => {
+  const loadSfere = (c: SallaIntegrationConfig): void => {
     if (w.sfere) return;
     const q = [] as unknown as unknown[] & Record<string, Method>;
     for (const m of QUEUE_METHODS) {
@@ -123,13 +135,13 @@ export function install(win: Window, script: HTMLScriptElement | null): Integrat
     w.sfere = q;
     const s = doc.createElement("script");
     s.async = true;
-    s.src = config.sdkSrc;
-    if (config.sdkIntegrity) {
-      s.integrity = config.sdkIntegrity;
+    s.src = c.sdkSrc;
+    if (c.sdkIntegrity) {
+      s.integrity = c.sdkIntegrity;
       s.crossOrigin = "anonymous";
     }
-    s.setAttribute("data-write-key", config.writeKey);
-    s.setAttribute("data-host", config.host);
+    s.setAttribute("data-write-key", c.writeKey);
+    s.setAttribute("data-host", c.host);
     (doc.head ?? doc.documentElement).appendChild(s);
   };
 
@@ -146,7 +158,7 @@ export function install(win: Window, script: HTMLScriptElement | null): Integrat
 
   const envelope = (): Record<string, unknown> => {
     const env: Record<string, unknown> = { source: SOURCE };
-    const storeId = str(cfg("store.id")) ?? config.storeId;
+    const storeId = str(cfg("store.id")) ?? config?.storeId;
     if (storeId) env.store_id = storeId;
     return env;
   };
@@ -218,9 +230,75 @@ export function install(win: Window, script: HTMLScriptElement | null): Integrat
     page: () => sendPage(false),
   };
 
-  const start = (): void => {
+  /** `{write_key, host}` as a validated config, or undefined. */
+  const fromPayload = (
+    r: RemoteConfig,
+    data: unknown,
+    storeId: string,
+  ): SallaIntegrationConfig | undefined => {
+    const d = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+    const writeKey = str(d.write_key);
+    const host = cleanHost(d.host);
+    if (!writeKey || !host) return undefined;
+    return {
+      sdkSrc: r.sdkSrc,
+      sdkIntegrity: r.sdkIntegrity,
+      debug: r.debug,
+      writeKey,
+      host,
+      storeId,
+    };
+  };
+
+  /** The store's config from sessionStorage, else GET `${configUrl}?store_id=`. Never rejects. */
+  const resolveRemote = async (r: RemoteConfig): Promise<SallaIntegrationConfig | undefined> => {
     try {
-      loadSfere();
+      const storeId = str(r.storeId) ?? str(cfg("store.id"));
+      if (!storeId) {
+        log("no store id for the config lookup");
+        return undefined;
+      }
+      const key = CONFIG_CACHE_PREFIX + storeId;
+      try {
+        const cached = w.sessionStorage.getItem(key);
+        const hit = cached ? fromPayload(r, JSON.parse(cached), storeId) : undefined;
+        if (hit) return hit;
+      } catch {
+        // storage blocked or the entry is corrupt: fetch instead
+      }
+      const url = new URL(r.configUrl);
+      url.searchParams.set("store_id", storeId);
+      const res = await w.fetch(url.toString(), { credentials: "omit" });
+      if (!res.ok) {
+        log("config lookup failed", res.status);
+        return undefined;
+      }
+      const data: unknown = await res.json();
+      const found = fromPayload(r, data, storeId);
+      if (!found) {
+        log("config lookup returned no usable write_key and http(s) host");
+        return undefined;
+      }
+      try {
+        w.sessionStorage.setItem(
+          key,
+          JSON.stringify({ write_key: found.writeKey, host: found.host }),
+        );
+      } catch {
+        // storage blocked: the next page fetches again
+      }
+      return found;
+    } catch (e) {
+      log("config lookup failed", e);
+      return undefined;
+    }
+  };
+
+  const start = async (): Promise<void> => {
+    try {
+      config ??= remote ? await resolveRemote(remote) : undefined;
+      if (!config) return;
+      loadSfere(config);
       identifyIfLoggedIn();
       sendPage(true);
       const analytics = salla()?.analytics;
@@ -240,7 +318,7 @@ export function install(win: Window, script: HTMLScriptElement | null): Integrat
   const startOnce = (): void => {
     if (started) return;
     started = true;
-    start();
+    void start();
   };
 
   const boot = (attempt: number): void => {
