@@ -1,11 +1,15 @@
-// Gzip budget for the script-tag bundle. Fails (exit 1) when dist/cdn/sfere.min.js is over budget.
-// Budget = size measured on 2026-09-28 for v0.1.0 (46,162 B gzip -9) + ~10% headroom.
-// Raise it deliberately, in a reviewed change, when a dependency upgrade needs more room.
+// Gzip budget for a package's CDN bundle, run from the package directory. Fails (exit 1) when the
+// bundle is over budget.
+// Browser SDK (the defaults): dist/cdn/sfere.min.js, budget = size measured on 2026-09-28 for
+// v0.1.0 (46,162 B gzip -9) + ~10% headroom. Other CDN packages (packages/salla) set
+// `sfereCdn.entry` and `sfereCdn.gzipBudget` in their package.json.
+// Raise a budget deliberately, in a reviewed change, when a dependency upgrade needs more room.
 import { readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 
-const FILE = "dist/cdn/sfere.min.js";
-const BUDGET_BYTES = 50_700;
+const cdn = JSON.parse(readFileSync("package.json", "utf8")).sfereCdn ?? {};
+const FILE = `dist/cdn/${cdn.entry ?? "sfere.min.js"}`;
+const BUDGET_BYTES = cdn.gzipBudget ?? 50_700;
 
 let source;
 try {

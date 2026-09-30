@@ -95,6 +95,12 @@ trailing `/` in each prefix is what separates an alias from a version:
 `sdk/v0.1.0/sfere.min.js` (whose name continues with `.0/`). Conditions
 require uniform bucket-level access, which the bucket has from creation.
 
+Integrations (`/integrations/<name>/`, e.g. the Salla script) have alias
+lines of their own. Name them with their prefix in `CDN_ALIASES`
+(`integrations/salla/v0.1`); a bare `v0.3` still means `sdk/v0.3/`. The
+immutable integration paths need nothing: `objectCreator` already allows
+creating them, and nothing may overwrite them.
+
 The alias list is the `CDN_ALIASES` variable (default: the alias line of the
 version in `package.json`). **A new alias line needs a re-run** with the new
 line added — before the *second* release on that line: the first release only

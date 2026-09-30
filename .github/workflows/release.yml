@@ -34,6 +34,8 @@ jobs:
     outputs:
       published: ${{ steps.tag.outputs.published }}
       version: ${{ steps.tag.outputs.version }}
+      salla_published: ${{ steps.tag.outputs.salla_published }}
+      salla_version: ${{ steps.tag.outputs.salla_version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -88,8 +90,13 @@ jobs:
       #
       # Tags: the browser SDK keeps plain `vX.Y.Z` (cdn-deploy.yml and the
       # GitHub release check it out); every other package gets the Changesets
-      # form `<name>@X.Y.Z`. The job outputs describe the browser SDK only,
-      # because only it has release artifacts and a CDN deploy.
+      # form `<name>@X.Y.Z`. `published`/`version` describe the browser SDK,
+      # the only package with release artifacts.
+      #
+      # CDN-only packages are private (never on the registry) and carry a
+      # `sfereCdn` block in package.json: today packages/salla. Changesets still
+      # versions them; when no changesets are pending and `<name>@X.Y.Z` is not
+      # tagged yet, this step tags it and cdn-deploy-salla below ships it.
       #
       # Pushed with the GITHUB_TOKEN credentials actions/checkout persisted. A tag
       # pushed by GITHUB_TOKEN never starts other workflows, which is fine: the
@@ -99,12 +106,28 @@ jobs:
         if: steps.changesets.outputs.has-changesets == 'false'
         run: |
           BROWSER="@fanfinity/sfere-sdk"
+          SALLA="@fanfinity/sfere-salla"
           PUBLISHED=false
           VERSION=""
+          SALLA_PUBLISHED=false
+          SALLA_VERSION=""
           for manifest in packages/*/package.json; do
-            if [ "$(node -p "require('./$manifest').private === true")" = "true" ]; then continue; fi
             NAME="$(node -p "require('./$manifest').name")"
             V="$(node -p "require('./$manifest').version")"
+            if [ "$(node -p "require('./$manifest').private === true")" = "true" ]; then
+              if [ "$NAME" != "$SALLA" ] || [ "$V" = "0.0.0" ]; then continue; fi
+              TAG="$NAME@$V"
+              if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+                echo "$TAG already tagged; nothing to release for $NAME." >> "$GITHUB_STEP_SUMMARY"
+                continue
+              fi
+              git tag "$TAG" HEAD
+              git push origin "$TAG"
+              echo "Released $NAME@$V (CDN only) as $TAG." >> "$GITHUB_STEP_SUMMARY"
+              SALLA_PUBLISHED=true
+              SALLA_VERSION="$V"
+              continue
+            fi
             if [ "$NAME" = "$BROWSER" ]; then TAG="v$V"; else TAG="$NAME@$V"; fi
             if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
               echo "$TAG already tagged; nothing to release for $NAME." >> "$GITHUB_STEP_SUMMARY"
@@ -136,6 +159,8 @@ jobs:
           done
           echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "salla_published=$SALLA_PUBLISHED" >> "$GITHUB_OUTPUT"
+          echo "salla_version=$SALLA_VERSION" >> "$GITHUB_OUTPUT"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -193,3 +218,17 @@ jobs:
     uses: ./.github/workflows/cdn-deploy.yml
     with:
       version: "${{ needs.version-or-publish.outputs.version }}"
+
+  # The Salla storefront integration: CDN only (/integrations/salla/), tagged
+  # @fanfinity/sfere-salla@X.Y.Z above. Independent of the SDK jobs, so an
+  # integration-only release still deploys.
+  cdn-deploy-salla:
+    needs: version-or-publish
+    if: needs.version-or-publish.outputs.salla_published == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/cdn-deploy.yml
+    with:
+      version: "${{ needs.version-or-publish.outputs.salla_version }}"
+      target: salla
