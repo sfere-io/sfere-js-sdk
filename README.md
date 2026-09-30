@@ -6,6 +6,7 @@ Collect first-party fan events and send them to Sfere, from the browser and from
 |---|---|---|
 | [`@fanfinity/sfere-sdk`](packages/browser) | Web pages: script tag (CDN) or npm, with React / Next.js bindings at `@fanfinity/sfere-sdk/react` | [README](packages/browser/README.md) · [integration guide](docs/INTEGRATION.md) |
 | [`@fanfinity/sfere-node`](packages/node) | Node.js 20+ servers: purchases, refunds and other backend events, with the customer's IP, user agent and click IDs | [README](packages/node/README.md) |
+| [`@fanfinity/sfere-salla`](packages/salla) | Salla storefronts: one App Snippet that loads the browser SDK and forwards the storefront's analytics events. CDN only (`cdn.sfere.io/integrations/salla/`), never on npm | [README](packages/salla/README.md) |
 | HTTP API | Any language, no SDK | [HTTP-API.md](docs/HTTP-API.md) |
 
 `packages/shared` is internal: the identifier maps both SDKs apply. It is bundled into each SDK at build time and never published.

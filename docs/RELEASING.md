@@ -85,6 +85,24 @@ Two things worth knowing about that PR:
   must be on at both the organisation level and the repository level (Actions →
   General), or the action cannot open it. Both are on as of 2026-09-28.
 
+### CDN-only packages (the Salla integration)
+
+`packages/salla` (`@fanfinity/sfere-salla`) is private: Changesets versions it
+(`.changeset/config.json` `privatePackages: { version: true, tag: false }`;
+Changesets v3 skips private packages without it), nothing publishes it to a
+registry. On the Version Packages merge,
+`release.yml`'s tag step tags `@fanfinity/sfere-salla@X.Y.Z` when that tag does
+not exist yet, and the `cdn-deploy-salla` job calls `cdn-deploy.yml` with
+`target: salla`, which publishes `/integrations/salla/v{X.Y.Z}/` and its alias.
+A manual re-deploy or rollback passes the same target:
+
+```sh
+gh workflow run cdn-deploy.yml --ref main -f target=salla -f version=<X.Y.Z> -f alias_only=true
+```
+
+Its alias lines need the same one-time `provision.sh` re-run as the SDK's (next
+section), named with their prefix: `integrations/salla/v0.1`.
+
 ### Starting a new alias line (new minor while 0.x, new major after 1.0)
 
 The CDN deploy service account may overwrite only the alias prefixes it was
@@ -103,7 +121,13 @@ gh workflow run cdn-deploy.yml --ref main -f version=<X.Y.Z> -f alias_only=true
 ```
 
 As of 2026-09-29 the deploy account may overwrite `v0.1` to `v0.4`, so the
-next line that needs this is `v0.5`.
+next line that needs this is `v0.5`. It may **not** yet overwrite
+`integrations/salla/v0.1`: run the re-run below after the first Salla
+integration release (0.1.0) and before the second:
+
+```sh
+CDN_ALIASES="v0.1 v0.2 v0.3 v0.4 integrations/salla/v0.1" infra/cdn/provision.sh
+```
 
 ## Prerelease flow
 

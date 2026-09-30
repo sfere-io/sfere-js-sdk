@@ -31,6 +31,20 @@ alias path) has the authoritative mapping — `urls.immutable` and
 `urls.alias` — plus every file's size and hash. `scripts/cdn-manifest.mjs`
 generates it at build time and prints a ready-to-paste `<script>` tag.
 
+## Integrations
+
+A storefront integration ships under its own prefix and version line, with the
+same two kinds of URL, the same caching, SRI and rollback rules as `/sdk/`:
+
+| Integration | Immutable | Alias |
+|---|---|---|
+| Salla (`packages/salla`) | `/integrations/salla/v{X.Y.Z}/sfere-salla.min.js` | `/integrations/salla/v0.{minor}/sfere-salla.min.js` |
+
+Each has a `manifest.json` beside it. An integration loads the SDK itself, from
+an **immutable** `/sdk/v{X.Y.Z}/` URL with SRI (never the alias), so the SDK a
+store runs only changes when a new integration version ships. See
+`../packages/salla/README.md`.
+
 ## Caching
 
 | Path | `Cache-Control` | Why |

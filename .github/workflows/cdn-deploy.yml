@@ -5,6 +5,14 @@ name: cdn-deploy
 # a version publishes, or run by hand (workflow_dispatch) for a rollback / a
 # re-deploy of an already-published version.
 #
+# Two targets share this workflow (input `target`, default `sdk`):
+#   sdk    the browser SDK, tag vX.Y.Z, packages/browser -> /sdk/v{X.Y.Z}/ + alias
+#   salla  the Salla storefront integration, tag @fanfinity/sfere-salla@X.Y.Z,
+#          packages/salla -> /integrations/salla/v{X.Y.Z}/ + alias
+# Path prefix and file list come from the package's own package.json (`sfereCdn`,
+# read by scripts/cdn-publish.sh and cdn-manifest.mjs); the browser SDK has none
+# and keeps the defaults, so its paths are unchanged.
+#
 # Deliberately green before the CDN infra exists: `check-config` reads the
 # repository Variables it needs and skips the deploy job cleanly (with a step
 # summary note, not a failure) when any of them isn't set yet. That keeps
@@ -16,12 +24,23 @@ on:
         description: "Bare semver to deploy, no leading 'v' (e.g. 0.1.0 or 0.2.0-next.0)"
         required: true
         type: string
+      target:
+        description: "What to deploy: sdk (browser SDK) or salla (Salla storefront integration)"
+        required: false
+        type: string
+        default: sdk
   workflow_dispatch:
     inputs:
       version:
         description: "Bare semver to deploy, no leading 'v' (e.g. 0.1.0 or 0.2.0-next.0)"
         required: true
         type: string
+      target:
+        description: "What to deploy: sdk (browser SDK) or salla (Salla storefront integration)"
+        required: false
+        type: choice
+        options: [sdk, salla]
+        default: sdk
       alias_only:
         description: "Rollback: only re-point the alias at this already-published version (skips the immutable upload, which would otherwise be refused by --if-generation-match=0)"
         required: false
@@ -40,7 +59,19 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       configured: ${{ steps.check.outputs.configured }}
+      ref: ${{ steps.target.outputs.ref }}
     steps:
+      - name: Resolve the target's tag
+        id: target
+        env:
+          TARGET: ${{ inputs.target || 'sdk' }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          case "$TARGET" in
+            sdk) echo "ref=v${VERSION}" >> "$GITHUB_OUTPUT" ;;
+            salla) echo "ref=@fanfinity/sfere-salla@${VERSION}" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::unknown target '$TARGET' (sdk or salla)"; exit 1 ;;
+          esac
       - name: Check required repository variables
         id: check
         run: |
@@ -73,16 +104,37 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: "v${{ inputs.version }}"
+          ref: ${{ needs.check-config.outputs.ref }}
 
-      # Where the browser package lives in the checked-out tag: packages/browser since the
-      # workspace layout (after v0.3.0), the repo root before it. Rollbacks to an older tag
-      # therefore keep working with this newer workflow.
-      - name: Locate the browser package
+      # Where the package lives in the checked-out tag. The browser SDK: packages/browser since
+      # the workspace layout (after v0.3.0), the repo root before it, so rollbacks to an older
+      # tag keep working with this newer workflow. The Salla integration: packages/salla, which
+      # publishes with the browser package's script. CDN_PREFIX / CDN_ENTRY / CDN_BANNER come
+      # from the package's `sfereCdn` (the SDK has none: sdk / sfere.min.js / "Sfere SDK").
+      - name: Locate the package
+        env:
+          TARGET: ${{ inputs.target || 'sdk' }}
         run: |
-          if [ -f packages/browser/package.json ]; then DIR=packages/browser; else DIR=.; fi
-          echo "PKG_DIR=$DIR" >> "$GITHUB_ENV"
-          echo "Browser package directory in v${{ inputs.version }}: $DIR" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$TARGET" = "salla" ]; then
+            DIR=packages/salla
+            PUBLISH=../browser/scripts/cdn-publish.sh
+          elif [ -f packages/browser/package.json ]; then
+            DIR=packages/browser
+            PUBLISH=scripts/cdn-publish.sh
+          else
+            DIR=.
+            PUBLISH=scripts/cdn-publish.sh
+          fi
+          cdn() { PKG="$DIR/package.json" KEY="$1" DEF="$2" node -p \
+            'const c = require(require("path").resolve(process.env.PKG)).sfereCdn || {}; c[process.env.KEY] || process.env.DEF'; }
+          {
+            echo "PKG_DIR=$DIR"
+            echo "PUBLISH_SCRIPT=$PUBLISH"
+            echo "CDN_PREFIX=$(cdn prefix sdk)"
+            echo "CDN_ENTRY=$(cdn entry sfere.min.js)"
+            echo "CDN_BANNER=$(cdn banner 'Sfere SDK')"
+          } >> "$GITHUB_ENV"
+          echo "Package directory in ${{ needs.check-config.outputs.ref }}: $DIR" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -118,9 +170,9 @@ jobs:
         working-directory: ${{ env.PKG_DIR }}
         run: |
           if [ "${{ inputs.alias_only }}" = "true" ]; then
-            scripts/cdn-publish.sh "${{ inputs.version }}" --alias-only
+            "$PUBLISH_SCRIPT" "${{ inputs.version }}" --alias-only
           else
-            scripts/cdn-publish.sh "${{ inputs.version }}"
+            "$PUBLISH_SCRIPT" "${{ inputs.version }}"
           fi
         env:
           CDN_BUCKET: ${{ vars.CDN_BUCKET }}
@@ -141,10 +193,10 @@ jobs:
           MINOR="${REST%%.*}"
           if [ "$MAJOR" = "0" ]; then SEGMENT="v0.${MINOR}"; else SEGMENT="v${MAJOR}"; fi
           if gcloud compute url-maps invalidate-cdn-cache "$CDN_URL_MAP" --global --async \
-               --project="$CDN_PROJECT" --path="/sdk/${SEGMENT}/*"; then
-            echo "Invalidated /sdk/${SEGMENT}/* on $CDN_URL_MAP." >> "$GITHUB_STEP_SUMMARY"
+               --project="$CDN_PROJECT" --path="/${CDN_PREFIX}/${SEGMENT}/*"; then
+            echo "Invalidated /${CDN_PREFIX}/${SEGMENT}/* on $CDN_URL_MAP." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "::warning::CDN invalidation of /sdk/${SEGMENT}/* failed; the alias smoke will wait for the edge instead."
+            echo "::warning::CDN invalidation of /${CDN_PREFIX}/${SEGMENT}/* failed; the alias smoke will wait for the edge instead."
           fi
 
       - name: Smoke-test the public URL
@@ -153,8 +205,8 @@ jobs:
           CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
         run: |
           set -euo pipefail
-          URL="${CDN_BASE_URL%/}/sdk/v${{ inputs.version }}/sfere.min.js"
-          EXPECTED="$(node -p 'JSON.parse(require("fs").readFileSync(process.env.PKG_DIR + "/dist/cdn/manifest.json","utf8")).files.find(f=>f.path.endsWith("sfere.min.js")).sha384')"
+          URL="${CDN_BASE_URL%/}/${CDN_PREFIX}/v${{ inputs.version }}/${CDN_ENTRY}"
+          EXPECTED="$(node -p 'JSON.parse(require("fs").readFileSync(process.env.PKG_DIR + "/dist/cdn/manifest.json","utf8")).files.find(f=>f.path==="dist/cdn/"+process.env.CDN_ENTRY).sha384')"
 
           echo "Fetching $URL"
           curl -fsS -D headers.txt -o downloaded.js "$URL"
@@ -191,13 +243,15 @@ jobs:
       # Chromium loads the live bundle (test/e2e/specs/cdn-smoke.spec.ts) and must deliver events to
       # the mock ingestion host: first the immutable URL with <script integrity crossorigin> (what a
       # pinned page does; catches SRI/CORS regressions), then the alias URL the loader snippet uses.
+      # The browser smokes below exercise the SDK bundle (test/e2e/specs/cdn-smoke.spec.ts). The
+      # Salla integration gets the hash + header check above, and the alias check at the end.
       - name: Install Playwright Chromium
-        if: vars.CDN_BASE_URL != ''
+        if: vars.CDN_BASE_URL != '' && inputs.target != 'salla'
         working-directory: ${{ env.PKG_DIR }}
         run: npx playwright install --with-deps chromium
 
       - name: Browser smoke test (immutable URL, SRI)
-        if: vars.CDN_BASE_URL != ''
+        if: vars.CDN_BASE_URL != '' && inputs.target != 'salla'
         working-directory: ${{ env.PKG_DIR }}
         env:
           CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
@@ -214,7 +268,7 @@ jobs:
       # trick bypasses it. Instead wait, bounded, until the edge serves this version's banner,
       # then run the browser smoke against the plain alias URL a client's snippet uses.
       - name: Browser smoke test (alias URL)
-        if: vars.CDN_BASE_URL != '' && !contains(inputs.version, '-')
+        if: vars.CDN_BASE_URL != '' && !contains(inputs.version, '-') && inputs.target != 'salla'
         working-directory: ${{ env.PKG_DIR }}
         env:
           CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
@@ -247,6 +301,40 @@ jobs:
           done
           echo "Edge serves v${CDN_SMOKE_VERSION} at $CDN_SMOKE_URL"
           npx playwright test test/e2e/specs/cdn-smoke.spec.ts
+
+      # Salla integration: wait, bounded, until the edge serves this version at the alias, then
+      # require the alias bytes to hash to this build (the same bytes as the immutable URL).
+      - name: Alias smoke test (Salla integration)
+        if: vars.CDN_BASE_URL != '' && !contains(inputs.version, '-') && inputs.target == 'salla'
+        env:
+          CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          MAJOR="${VERSION%%.*}"
+          REST="${VERSION#*.}"
+          MINOR="${REST%%.*}"
+          if [ "$MAJOR" = "0" ]; then SEGMENT="v0.${MINOR}"; else SEGMENT="v${MAJOR}"; fi
+          URL="${CDN_BASE_URL%/}/${CDN_PREFIX}/${SEGMENT}/${CDN_ENTRY}"
+          EXPECTED="$(node -p 'JSON.parse(require("fs").readFileSync(process.env.PKG_DIR + "/dist/cdn/manifest.json","utf8")).files.find(f=>f.path==="dist/cdn/"+process.env.CDN_ENTRY).sha384')"
+          DEADLINE=$(( $(date +%s) + 900 ))
+          served() {
+            curl -fsS -o alias.js "$URL" && head -c 200 alias.js | grep -q "${CDN_BANNER} v${VERSION} "
+          }
+          until served; do
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "::error::$URL still does not serve v${VERSION} after 15 minutes"
+              exit 1
+            fi
+            echo "Edge still serves the previous alias; retrying in 20 s"
+            sleep 20
+          done
+          ACTUAL="sha384-$(openssl dgst -sha384 -binary alias.js | openssl base64 -A)"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::alias $URL hashes to $ACTUAL, manifest says $EXPECTED"
+            exit 1
+          fi
+          echo "Edge serves v${VERSION} at $URL ($EXPECTED)" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()

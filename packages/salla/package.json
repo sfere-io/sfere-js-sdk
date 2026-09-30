@@ -1,0 +1,35 @@
+{
+  "name": "@fanfinity/sfere-salla",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sfere storefront integration for Salla: one App Snippet that loads the Sfere SDK and forwards the storefront's analytics events. Shipped only as a CDN script (cdn.sfere.io/integrations/salla/), never published to npm.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "sfereCdn": {
+    "prefix": "integrations/salla",
+    "files": [
+      "sfere-salla.min.js"
+    ],
+    "entry": "sfere-salla.min.js",
+    "banner": "Sfere Salla integration",
+    "gzipBudget": 2850
+  },
+  "scripts": {
+    "clean": "node -e \"for (const d of ['dist','coverage']) require('node:fs').rmSync(d,{recursive:true,force:true})\"",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "size": "node ../browser/scripts/size-check.mjs",
+    "verify": "node scripts/verify-dist.mjs",
+    "cdn:manifest": "node ../browser/scripts/cdn-manifest.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@vitest/coverage-v8": "^5.0.2",
+    "happy-dom": "^20.14.5",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

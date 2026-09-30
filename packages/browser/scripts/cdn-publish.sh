@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Uploads dist/cdn/{sfere.min.js,sfere.js,manifest.json} to the CDN bucket.
+# Uploads a package's dist/cdn/ bundles plus manifest.json to the CDN bucket. Run from the
+# package directory. The browser SDK uses the defaults: {sfere.min.js,sfere.js,manifest.json}
+# under sdk/. A package with a `sfereCdn` block in its package.json (packages/salla) sets its
+# own path prefix and file list, e.g. integrations/salla/ + sfere-salla.min.js.
 # See docs/CDN-POLICY.md for the URL scheme and caching contract this encodes,
 # and docs/RELEASING.md / infra/cdn/README.md for how it's invoked in CI.
 #
@@ -11,7 +14,7 @@
 #   --alias-only    only (re-)point the alias path; used for rollback — see
 #                   "Rollback" in docs/CDN-POLICY.md. Skips the immutable upload
 #                   entirely, so it never needs the immutable files to be rebuilt.
-#   --dist <dir>    directory holding {sfere.min.js,sfere.js,manifest.json}
+#   --dist <dir>    directory holding the bundles and manifest.json
 #                   (default: dist/cdn). Point this at a scratch directory to
 #                   test the script without touching the repo's own dist/.
 #
@@ -59,7 +62,22 @@ case "$VERSION" in
   *) echo "cdn-publish: '$VERSION' does not look like a semver (X.Y.Z or X.Y.Z-pre)." >&2; exit 1 ;;
 esac
 
-for f in sfere.min.js sfere.js manifest.json; do
+# Path prefix and files from package.json's `sfereCdn` (defaults: the browser SDK's).
+PREFIX="sdk"
+FILES="sfere.min.js sfere.js"
+META="sfere-sdk-version=${VERSION}"
+if [ -f package.json ] && [ "$(node -p 'Boolean(require("./package.json").sfereCdn)')" = "true" ]; then
+  PREFIX="$(node -p 'require("./package.json").sfereCdn.prefix')"
+  FILES="$(node -p 'require("./package.json").sfereCdn.files.join(" ")')"
+  META="sfere-package=$(node -p 'require("./package.json").name'),sfere-version=${VERSION}"
+fi
+case "$PREFIX" in
+  sdk|integrations/[a-z0-9-]*) : ;;
+  *) echo "cdn-publish: unexpected CDN prefix '$PREFIX' (sdk or integrations/<name>)." >&2; exit 1 ;;
+esac
+FILES="$FILES manifest.json"
+
+for f in $FILES; do
   [ -f "$DIST/$f" ] || { echo "cdn-publish: missing $DIST/$f (run \`npm run build && npm run cdn:manifest\` first)." >&2; exit 1; }
 done
 
@@ -96,8 +114,8 @@ else
   ALIAS_SEGMENT="v0.${MINOR}"
 fi
 
-IMMUTABLE_PREFIX="gs://${CDN_BUCKET}/sdk/v${VERSION}"
-ALIAS_PREFIX="gs://${CDN_BUCKET}/sdk/${ALIAS_SEGMENT}"
+IMMUTABLE_PREFIX="gs://${CDN_BUCKET}/${PREFIX}/v${VERSION}"
+ALIAS_PREFIX="gs://${CDN_BUCKET}/${PREFIX}/${ALIAS_SEGMENT}"
 
 upload_immutable() {
   local file="$1"
@@ -110,7 +128,7 @@ upload_immutable() {
     --if-generation-match=0 \
     --cache-control "public, max-age=31536000, immutable" \
     --content-type "$ct" \
-    --custom-metadata "sfere-sdk-version=${VERSION}"
+    --custom-metadata "$META"
 }
 
 upload_alias() {
@@ -120,12 +138,12 @@ upload_alias() {
   run gcloud storage cp "$DIST/$file" "${ALIAS_PREFIX}/${file}" \
     --cache-control "public, max-age=300, stale-while-revalidate=86400" \
     --content-type "$ct" \
-    --custom-metadata "sfere-sdk-version=${VERSION}"
+    --custom-metadata "$META"
 }
 
 if [ "$ALIAS_ONLY" -eq 0 ]; then
   echo "Publishing immutable v${VERSION} to ${IMMUTABLE_PREFIX}/ ..."
-  for f in sfere.min.js sfere.js manifest.json; do
+  for f in $FILES; do
     upload_immutable "$f"
   done
 else
@@ -136,7 +154,7 @@ if [ "$IS_PRERELEASE" -eq 1 ]; then
   echo "Prerelease version ($VERSION): not touching the ${ALIAS_SEGMENT} alias."
 else
   echo "Pointing alias ${ALIAS_SEGMENT} at v${VERSION} (${ALIAS_PREFIX}/) ..."
-  for f in sfere.min.js sfere.js manifest.json; do
+  for f in $FILES; do
     upload_alias "$f"
   done
 fi

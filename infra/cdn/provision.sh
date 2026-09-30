@@ -66,6 +66,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # re-run before the SECOND release on that line — the first release only
 # creates the alias objects, which objectCreator already allows. See README.md
 # "Alias overwrite: delete permission, scoped by IAM Condition".
+#
+# CDN-only integrations (packages/salla -> /integrations/salla/) have alias lines
+# of their own. Name them with their prefix, e.g.
+#   CDN_ALIASES="v0.1 v0.2 v0.3 v0.4 integrations/salla/v0.1"
+# A bare v<...> entry means sdk/v<...>/, as before.
 if [ -z "${CDN_ALIASES:-}" ]; then
   PKG_VERSION="$(sed -nE 's/^ *"version": *"([^"]+)".*/\1/p' "${SCRIPT_DIR}/../../packages/browser/package.json" | head -n1)"
   PKG_MAJOR="${PKG_VERSION%%.*}"
@@ -78,9 +83,18 @@ if [ -z "${CDN_ALIASES:-}" ]; then
   fi
 fi
 for alias in $CDN_ALIASES; do
+  segment="${alias##*/}"
   case "$alias" in
+    */*) prefix="${alias%/*}" ;;
+    *) prefix="sdk" ;;
+  esac
+  case "$prefix" in
+    sdk|integrations/[a-z0-9]*) : ;;
+    *) echo "CDN_ALIASES entry '$alias' has an unexpected prefix (sdk or integrations/<name>)" >&2; exit 1 ;;
+  esac
+  case "$segment" in
     v[0-9]|v[0-9][0-9]|v0.[0-9]|v0.[0-9][0-9]) : ;;
-    *) echo "CDN_ALIASES entry '$alias' is not an alias segment (expected v<major> or v0.<minor>)" >&2; exit 1 ;;
+    *) echo "CDN_ALIASES entry '$alias' is not an alias segment (expected [<prefix>/]v<major> or [<prefix>/]v0.<minor>)" >&2; exit 1 ;;
   esac
 done
 
@@ -214,7 +228,11 @@ run_idempotent gcloud iam roles create "$ALIAS_ROLE_ID" \
 
 ALIAS_CONDITION=""
 for alias in $CDN_ALIASES; do
-  clause="resource.name.startsWith(\"projects/_/buckets/${BUCKET}/objects/sdk/${alias}/\")"
+  case "$alias" in
+    */*) path="$alias" ;;
+    *) path="sdk/$alias" ;;
+  esac
+  clause="resource.name.startsWith(\"projects/_/buckets/${BUCKET}/objects/${path}/\")"
   ALIAS_CONDITION="${ALIAS_CONDITION:+${ALIAS_CONDITION} || }${clause}"
 done
 # --condition takes key=value pairs separated by commas; the expression contains
