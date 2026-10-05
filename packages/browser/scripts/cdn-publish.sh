@@ -4,19 +4,32 @@
 # and docs/RELEASING.md / infra/cdn/README.md for how it's invoked in CI.
 #
 # Usage:
-#   scripts/cdn-publish.sh <version> [--dry-run] [--alias-only] [--dist <dir>]
+#   scripts/cdn-publish.sh <version> [--dry-run] [--alias-only] [--latest] [--dist <dir>]
 #
 #   <version>       bare semver, no leading 'v' (e.g. 0.1.0 or 0.2.0-next.0)
 #   --dry-run       print every gcloud command instead of running it
 #   --alias-only    only (re-)point the alias path; used for rollback — see
 #                   "Rollback" in docs/CDN-POLICY.md. Skips the immutable upload
 #                   entirely, so it never needs the immutable files to be rebuilt.
+#   --latest        move sdk/latest/ to this version even when the rules below
+#                   would not (e.g. rolling latest back across alias lines).
 #   --dist <dir>    directory holding {sfere.min.js,sfere.js,manifest.json}
 #                   (default: dist/cdn). Point this at a scratch directory to
 #                   test the script without touching the repo's own dist/.
 #
 # Required env:
 #   CDN_BUCKET      bare bucket name (no gs:// prefix), e.g. sfere-sdk-cdn
+# Optional env:
+#   CDN_LATEST_CURRENT  version sdk/latest/ serves now; skips reading it from the
+#                       bucket (for --dry-run tests; "none" means no latest yet)
+#   GITHUB_OUTPUT       when set (in Actions), gets alias_segment= and latest_moved=
+#
+# The latest channel, sdk/latest/, is for embeds that can never be edited once
+# shipped (an app-store app, a published tag template). It follows the newest
+# stable release across every alias line, majors included. A stable publish
+# moves it when the version is >= the one it serves, so a patch to an older line
+# never drags it back. --alias-only (rollback) moves it only while it is on the
+# same alias line, or with --latest. Prereleases never touch it.
 #
 # Immutability: the immutable path is written with --if-generation-match=0, which
 # makes gcloud storage cp fail the upload if an object already exists at that
@@ -31,10 +44,11 @@ set -euo pipefail
 DIST="dist/cdn"
 DRY_RUN=0
 ALIAS_ONLY=0
+FORCE_LATEST=0
 VERSION=""
 
 usage() {
-  echo "Usage: $0 <version> [--dry-run] [--alias-only] [--dist <dir>]" >&2
+  echo "Usage: $0 <version> [--dry-run] [--alias-only] [--latest] [--dist <dir>]" >&2
   exit 1
 }
 
@@ -42,6 +56,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY_RUN=1; shift ;;
     --alias-only) ALIAS_ONLY=1; shift ;;
+    --latest) FORCE_LATEST=1; shift ;;
     --dist) DIST="$2"; shift 2 ;;
     -h|--help) usage ;;
     -*) echo "Unknown flag: $1" >&2; usage ;;
@@ -98,6 +113,40 @@ fi
 
 IMMUTABLE_PREFIX="gs://${CDN_BUCKET}/sdk/v${VERSION}"
 ALIAS_PREFIX="gs://${CDN_BUCKET}/sdk/${ALIAS_SEGMENT}"
+LATEST_PREFIX="gs://${CDN_BUCKET}/sdk/latest"
+
+alias_segment_of() {
+  local v="$1" major rest
+  major="${v%%.*}"
+  rest="${v#*.}"
+  if [ "$major" -ge 1 ] 2>/dev/null; then echo "v${major}"; else echo "v0.${rest%%.*}"; fi
+}
+
+# The version sdk/latest/ serves now, from its manifest.json; empty when there
+# is none yet. Any other read failure stops the publish rather than guess, since
+# guessing wrong could move latest backwards.
+current_latest() {
+  if [ -n "${CDN_LATEST_CURRENT:-}" ]; then
+    [ "$CDN_LATEST_CURRENT" = "none" ] || echo "$CDN_LATEST_CURRENT"
+    return 0
+  fi
+  local out
+  if out="$(gcloud storage cat "${LATEST_PREFIX}/manifest.json" 2>&1)"; then
+    printf '%s\n' "$out" | sed -nE 's/^ *"version": *"([^"]+)".*/\1/p' | head -n1
+    return 0
+  fi
+  if printf '%s\n' "$out" | grep -qiE 'No URLs matched|not found|404'; then
+    return 0
+  fi
+  echo "cdn-publish: could not read ${LATEST_PREFIX}/manifest.json:" >&2
+  printf '%s\n' "$out" >&2
+  return 1
+}
+
+# Strictly-semver-ordered ">=" for stable X.Y.Z versions.
+version_gte() {
+  [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1)" = "$1" ]
+}
 
 upload_immutable() {
   local file="$1"
@@ -114,14 +163,33 @@ upload_immutable() {
 }
 
 upload_alias() {
-  local file="$1"
+  local file="$1" prefix="$2"
   local ct
   ct="$(content_type_for "$file")"
-  run gcloud storage cp "$DIST/$file" "${ALIAS_PREFIX}/${file}" \
+  run gcloud storage cp "$DIST/$file" "${prefix}/${file}" \
     --cache-control "public, max-age=300, stale-while-revalidate=86400" \
     --content-type "$ct" \
     --custom-metadata "sfere-sdk-version=${VERSION}"
 }
+
+# Decide on latest before uploading anything, so a failed read of the current
+# latest stops the publish before any object moves.
+MOVE_LATEST=0
+WHY=""
+if [ "$IS_PRERELEASE" -eq 0 ]; then
+  CURRENT="$(current_latest)"
+  if [ "$FORCE_LATEST" -eq 1 ]; then
+    MOVE_LATEST=1; WHY="--latest given"
+  elif [ -z "$CURRENT" ]; then
+    MOVE_LATEST=1; WHY="sdk/latest/ does not exist yet"
+  elif [ "$ALIAS_ONLY" -eq 1 ] && [ "$(alias_segment_of "$CURRENT")" = "$ALIAS_SEGMENT" ]; then
+    MOVE_LATEST=1; WHY="rollback on latest's own line (${ALIAS_SEGMENT}, now v${CURRENT})"
+  elif version_gte "$VERSION" "$CURRENT"; then
+    MOVE_LATEST=1; WHY="v${VERSION} >= v${CURRENT}"
+  else
+    MOVE_LATEST=0; WHY="latest serves v${CURRENT}, newer than v${VERSION} on another line (pass --latest to force)"
+  fi
+fi
 
 if [ "$ALIAS_ONLY" -eq 0 ]; then
   echo "Publishing immutable v${VERSION} to ${IMMUTABLE_PREFIX}/ ..."
@@ -132,13 +200,29 @@ else
   echo "--alias-only: skipping immutable upload for v${VERSION}."
 fi
 
+LATEST_MOVED=false
 if [ "$IS_PRERELEASE" -eq 1 ]; then
-  echo "Prerelease version ($VERSION): not touching the ${ALIAS_SEGMENT} alias."
+  echo "Prerelease version ($VERSION): not touching the ${ALIAS_SEGMENT} alias or latest."
 else
   echo "Pointing alias ${ALIAS_SEGMENT} at v${VERSION} (${ALIAS_PREFIX}/) ..."
   for f in sfere.min.js sfere.js manifest.json; do
-    upload_alias "$f"
+    upload_alias "$f" "$ALIAS_PREFIX"
   done
+
+  if [ "$MOVE_LATEST" -eq 1 ]; then
+    echo "Pointing latest at v${VERSION} (${LATEST_PREFIX}/): ${WHY} ..."
+    for f in sfere.min.js sfere.js manifest.json; do
+      upload_alias "$f" "$LATEST_PREFIX"
+    done
+    LATEST_MOVED=true
+  else
+    echo "Leaving latest alone: ${WHY}."
+  fi
+fi
+
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+  echo "alias_segment=${ALIAS_SEGMENT}" >> "$GITHUB_OUTPUT"
+  echo "latest_moved=${LATEST_MOVED}" >> "$GITHUB_OUTPUT"
 fi
 
 echo "Done."

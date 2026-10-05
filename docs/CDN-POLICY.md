@@ -12,6 +12,7 @@ Every published version gets two kinds of URL:
 |---|---|---|
 | **Immutable** | `/sdk/v{X.Y.Z}/{file}` | `/sdk/v1.4.2/sfere.min.js` |
 | **Alias** | `/sdk/v{major}/{file}` (>=1.0.0) or `/sdk/v0.{minor}/{file}` (0.x) | `/sdk/v1/sfere.min.js`, `/sdk/v0.3/sfere.min.js` |
+| **Latest** | `/sdk/latest/{file}` | `/sdk/latest/sfere.min.js` |
 
 **Use the immutable URL in production**, pinned with [Subresource Integrity
 (SRI)](#subresource-integrity-sri). It never changes bytes once published, so
@@ -25,6 +26,31 @@ release — e.g. a docs playground, or the loader snippet on a page you
 control end to end and can tolerate a same-day rollback flipping under it.
 Prereleases (a version like `1.5.0-next.0`) **never** get published to an
 alias — see "Rollback" below for why that matters.
+
+### The latest channel: embeds you can never edit
+
+`/sdk/latest/` always serves the newest stable release, across every alias
+line, majors included. It exists for embeds that cannot be changed once
+shipped: an app-store app's injected snippet, a published tag template, a
+partner's page we will never touch again. A line alias would freeze there the
+day the next minor (0.x) or major ships; `latest` does not.
+
+How it moves (`scripts/cdn-publish.sh`):
+
+- A stable release moves it when its version is `>=` the one `latest` serves,
+  so a patch to an older line (say `0.3.4` after `0.4.0`) never drags it back.
+- A rollback (`--alias-only`) moves it only while `latest` is on the same line.
+  To roll `latest` back across lines, after a bad new minor or major, pass
+  `--latest` (workflow input `force_latest`).
+- Prereleases never touch it.
+
+Same caching as an alias, same no-SRI rule. **This URL is a compatibility
+promise.** Every future release, majors included, reaches these embeds with
+no one reviewing them. So the loader contract must never break: the global
+name, the queued methods (`track / page / identify / group / alias / reset /
+setConsent`), the `data-*` attributes, and the wire format. Breaking changes to
+the npm API are fine; breaking changes to that contract need a new channel.
+Check a major against an unchanged snippet before you release it.
 
 `manifest.json` alongside every published build (at both the immutable and
 alias path) has the authoritative mapping — `urls.immutable` and
@@ -95,7 +121,7 @@ storage layer, not by convention:
   of an old version, cannot silently overwrite it.
 - The CDN deploy service account holds `roles/storage.objectCreator` and
   `roles/storage.objectViewer` bucket-wide, and `storage.objects.delete`
-  **only** under the alias prefixes (`sdk/v0.<minor>/`, `sdk/v<major>/`),
+  **only** under the alias prefixes (`sdk/v0.<minor>/`, `sdk/v<major>/`, `sdk/latest/`),
   through an IAM Condition. Overwriting an existing object in Cloud Storage
   requires delete even with versioning on, so the immutable paths cannot be
   overwritten by the deploy path at all. Full design, and why the condition

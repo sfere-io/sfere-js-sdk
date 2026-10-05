@@ -73,7 +73,7 @@ delete permission on the immutable paths, and is stopped twice there:
 
 ## Alias overwrite: delete permission, scoped by IAM Condition
 
-The alias paths (`sdk/v0.<minor>/` while 0.x, `sdk/v<major>/` from 1.0) are
+The alias paths (`sdk/v0.<minor>/` while 0.x, `sdk/v<major>/` from 1.0, and `sdk/latest/`) are
 the only objects that are ever re-pointed, so they are the only objects the
 SA may overwrite — which means delete. `provision.sh` creates a custom role
 `sfereSdkCdnAliasOverwriter` holding exactly `storage.objects.delete` and

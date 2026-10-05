@@ -198,7 +198,7 @@ run_idempotent gcloud storage buckets add-iam-policy-binding "gs://${BUCKET}" \
 
 echo
 echo "--- Alias overwrite: delete permission scoped to the alias prefixes ---"
-# The alias paths (/sdk/v0.<minor>/, /sdk/v<major>/) are the only objects that
+# The alias paths (/sdk/v0.<minor>/, /sdk/v<major>/, /sdk/latest/) are the only objects that
 # are ever re-pointed, so they are the only objects the SA may delete/overwrite.
 # A custom role with the single permission storage.objects.delete, bound with
 # an IAM Condition that ORs one startsWith() per alias prefix. Uniform
@@ -212,8 +212,10 @@ run_idempotent gcloud iam roles create "$ALIAS_ROLE_ID" \
   --permissions=storage.objects.delete \
   --stage=GA
 
+# sdk/latest/ (the cross-line channel, docs/CDN-POLICY.md) is always included:
+# every stable release may move it, so it never needs a re-run of its own.
 ALIAS_CONDITION=""
-for alias in $CDN_ALIASES; do
+for alias in latest $CDN_ALIASES; do
   clause="resource.name.startsWith(\"projects/_/buckets/${BUCKET}/objects/sdk/${alias}/\")"
   ALIAS_CONDITION="${ALIAS_CONDITION:+${ALIAS_CONDITION} || }${clause}"
 done
@@ -303,7 +305,7 @@ else
   IP="$(gcloud compute addresses describe "$IP_NAME" --project="$PROJECT" --global --format='value(address)' 2>/dev/null || echo '<see gcloud compute addresses describe>')"
   echo "Provisioning complete."
   echo
-  echo "Alias lines the deploy SA may overwrite: ${CDN_ALIASES}"
+  echo "Alias lines the deploy SA may overwrite: latest ${CDN_ALIASES}"
   echo "When a new alias line starts (new minor while 0.x, new major after 1.0),"
   echo "re-run before the second release on that line, e.g.:"
   # Suggest the line after the highest one provisioned (v0.<n> -> v0.<n+1>, v<n> -> v<n+1>).

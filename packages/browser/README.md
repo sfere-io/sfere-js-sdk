@@ -47,7 +47,7 @@ Then, anywhere on the page:
 
 The snippet already sends the first `page()`; call `sfere.page()` yourself only on later route changes. Add `s.setAttribute("data-batching", "true")` next to the other attributes to enable [batching](#configuration). The bundle also exposes `window.SfereSDK = { load, sfereEnrichment, version }` for pages that prefer to call `load()` themselves.
 
-`https://cdn.sfere.io/sdk/v0.1/` is the **alias** URL: it follows the latest 0.1.x patch. For a production page pinned with Subresource Integrity, use the **immutable** URL `https://cdn.sfere.io/sdk/v0.1.0/sfere.min.js` with the `integrity` hash from that build's `manifest.json` — see [docs/CDN-POLICY.md](../../docs/CDN-POLICY.md). Never put an SRI hash on the alias URL.
+`https://cdn.sfere.io/sdk/v0.1/` is the **alias** URL: it follows the latest 0.1.x patch. For a production page pinned with Subresource Integrity, use the **immutable** URL `https://cdn.sfere.io/sdk/v0.1.0/sfere.min.js` with the `integrity` hash from that build's `manifest.json` — see [docs/CDN-POLICY.md](../../docs/CDN-POLICY.md). Never put an SRI hash on the alias URL. For embeds you can never edit again (an app-store app, a published tag template), use `https://cdn.sfere.io/sdk/latest/sfere.min.js`: it follows every stable release, across lines and majors.
 
 ### npm
 

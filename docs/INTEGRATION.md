@@ -19,7 +19,7 @@ Contact your Sfere account manager to obtain a public browser write key in the f
 ></script>
 ```
 
-`/sdk/v0.1/` is the alias URL (latest 0.1.x). For an SRI-pinned production page use the immutable URL `/sdk/v0.1.0/sfere.min.js` with the hash from its `manifest.json` — see [CDN-POLICY.md](CDN-POLICY.md).
+`/sdk/v0.1/` is the alias URL (latest 0.1.x). If the snippet goes somewhere you can never edit again (an app-store app, a published tag template), use `https://cdn.sfere.io/sdk/latest/sfere.min.js` instead: it follows every stable release, majors included. For an SRI-pinned production page use the immutable URL `/sdk/v0.1.0/sfere.min.js` with the hash from its `manifest.json` — see [CDN-POLICY.md](CDN-POLICY.md).
 
 **npm**: Better for single-page apps and teams using a bundler (webpack, Vite, etc.). Allows you to import directly in your framework.
 
