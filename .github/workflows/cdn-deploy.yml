@@ -27,6 +27,11 @@ on:
         required: false
         type: boolean
         default: false
+      force_latest:
+        description: "Also move /sdk/latest/ to this version even across alias lines (rolling latest back past a bad new line). Without it, latest moves only forward, or within its own line on a rollback"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -75,6 +80,16 @@ jobs:
         with:
           ref: "v${{ inputs.version }}"
 
+      # The publish script comes from this workflow's commit, not from the tag: what gets uploaded
+      # where (aliases, /sdk/latest/) is deploy policy, so a rollback or a re-deploy of an older
+      # tag follows today's rules. The bytes are still built from the tag below.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: .deploy-tools
+          sparse-checkout: packages/browser/scripts/cdn-publish.sh
+          sparse-checkout-cone-mode: false
+
       # Where the browser package lives in the checked-out tag: packages/browser since the
       # workspace layout (after v0.3.0), the repo root before it. Rollbacks to an older tag
       # therefore keep working with this newer workflow.
@@ -112,20 +127,21 @@ jobs:
           service_account: ${{ vars.CDN_DEPLOY_SA }}
           project_id: ${{ vars.GCP_PROJECT_ID }}
 
-      # `inputs.alias_only` only exists on workflow_dispatch; on workflow_call it is
-      # empty, which the comparison treats as false (a normal, full publish).
+      # `inputs.alias_only` / `inputs.force_latest` only exist on workflow_dispatch; on
+      # workflow_call they are empty, which the comparisons treat as false (a normal, full
+      # publish). The script writes alias_segment= and latest_moved= to $GITHUB_OUTPUT.
       - name: Publish to the CDN bucket
+        id: publish
         working-directory: ${{ env.PKG_DIR }}
         run: |
-          if [ "${{ inputs.alias_only }}" = "true" ]; then
-            scripts/cdn-publish.sh "${{ inputs.version }}" --alias-only
-          else
-            scripts/cdn-publish.sh "${{ inputs.version }}"
-          fi
+          ARGS=()
+          [ "${{ inputs.alias_only }}" = "true" ] && ARGS+=(--alias-only)
+          [ "${{ inputs.force_latest }}" = "true" ] && ARGS+=(--latest)
+          "$GITHUB_WORKSPACE/.deploy-tools/packages/browser/scripts/cdn-publish.sh" "${{ inputs.version }}" "${ARGS[@]}"
         env:
           CDN_BUCKET: ${{ vars.CDN_BUCKET }}
 
-      # Purge the alias from the edge so it serves the new version at once (serve-while-stale kept
+      # Purge the alias (and /sdk/latest/ when it moved) from the edge so it serves the new version at once (serve-while-stale kept
       # the old alias ~8 minutes on the 0.3.2 deploy). The deploy SA may invalidate only this URL
       # map (infra/cdn/provision.sh). A failure here only costs time: the alias smoke below still
       # waits for the edge, so it warns instead of failing the deploy.
@@ -134,18 +150,16 @@ jobs:
         env:
           CDN_URL_MAP: ${{ vars.CDN_URL_MAP || 'sfere-sdk-cdn-lb' }}
           CDN_PROJECT: ${{ vars.GCP_PROJECT_ID }}
-          VERSION: ${{ inputs.version }}
+          SEGMENTS: ${{ steps.publish.outputs.alias_segment }}${{ steps.publish.outputs.latest_moved == 'true' && ' latest' || '' }}
         run: |
-          MAJOR="${VERSION%%.*}"
-          REST="${VERSION#*.}"
-          MINOR="${REST%%.*}"
-          if [ "$MAJOR" = "0" ]; then SEGMENT="v0.${MINOR}"; else SEGMENT="v${MAJOR}"; fi
-          if gcloud compute url-maps invalidate-cdn-cache "$CDN_URL_MAP" --global --async \
-               --project="$CDN_PROJECT" --path="/sdk/${SEGMENT}/*"; then
-            echo "Invalidated /sdk/${SEGMENT}/* on $CDN_URL_MAP." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "::warning::CDN invalidation of /sdk/${SEGMENT}/* failed; the alias smoke will wait for the edge instead."
-          fi
+          for SEGMENT in $SEGMENTS; do
+            if gcloud compute url-maps invalidate-cdn-cache "$CDN_URL_MAP" --global --async \
+                 --project="$CDN_PROJECT" --path="/sdk/${SEGMENT}/*"; then
+              echo "Invalidated /sdk/${SEGMENT}/* on $CDN_URL_MAP." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::CDN invalidation of /sdk/${SEGMENT}/* failed; the alias smoke will wait for the edge instead."
+            fi
+          done
 
       - name: Smoke-test the public URL
         if: vars.CDN_BASE_URL != ''
@@ -213,40 +227,41 @@ jobs:
       # the 0.3.1 deploy: a cache-busted URL returned the same cached object and Age), so no URL
       # trick bypasses it. Instead wait, bounded, until the edge serves this version's banner,
       # then run the browser smoke against the plain alias URL a client's snippet uses.
-      - name: Browser smoke test (alias URL)
+      # Runs for the line alias and, when this deploy moved it, for /sdk/latest/ too (the URL
+      # that embeds nobody can edit, such as app-store apps, load).
+      - name: Browser smoke test (alias URLs)
         if: vars.CDN_BASE_URL != '' && !contains(inputs.version, '-')
         working-directory: ${{ env.PKG_DIR }}
         env:
           CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
           CDN_SMOKE_VERSION: ${{ inputs.version }}
+          SEGMENTS: ${{ steps.publish.outputs.alias_segment }}${{ steps.publish.outputs.latest_moved == 'true' && ' latest' || '' }}
         run: |
           set -euo pipefail
-          MAJOR="${CDN_SMOKE_VERSION%%.*}"
-          REST="${CDN_SMOKE_VERSION#*.}"
-          MINOR="${REST%%.*}"
-          if [ "$MAJOR" = "0" ]; then SEGMENT="v0.${MINOR}"; else SEGMENT="v${MAJOR}"; fi
-          export CDN_SMOKE_URL="${CDN_BASE_URL%/}/sdk/${SEGMENT}/sfere.min.js"
-          # Measured by hand on the 0.3.2 deploy: alias uploaded 11:11:07, first served by a
-          # nearby edge ~11:19:17 (about 8 min). max-age is 300 s, but the backend bucket's serveWhileStale
-          # (86400 s) lets each cache node answer once more from the stale copy while it
-          # revalidates. 15 minutes leaves margin; a CDN invalidation would make this immediate
-          # but needs an extra compute permission for the deploy account.
-          DEADLINE=$(( $(date +%s) + 900 ))
-          # Download, then read: `curl | head` makes curl exit 23 when head closes the pipe, and
-          # under pipefail that failed every check even when the banner matched (0.3.2 deploy).
-          served() {
-            curl -fsS -o alias.js "$CDN_SMOKE_URL" && head -c 200 alias.js | grep -q "Sfere SDK v${CDN_SMOKE_VERSION} "
-          }
-          until served; do
-            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
-              echo "::error::$CDN_SMOKE_URL still does not serve v${CDN_SMOKE_VERSION} after 15 minutes"
-              exit 1
-            fi
-            echo "Edge still serves the previous alias; retrying in 20 s"
-            sleep 20
+          for SEGMENT in $SEGMENTS; do
+            export CDN_SMOKE_URL="${CDN_BASE_URL%/}/sdk/${SEGMENT}/sfere.min.js"
+            # Measured by hand on the 0.3.2 deploy: alias uploaded 11:11:07, first served by a
+            # nearby edge ~11:19:17 (about 8 min). max-age is 300 s, but the backend bucket's serveWhileStale
+            # (86400 s) lets each cache node answer once more from the stale copy while it
+            # revalidates. 15 minutes leaves margin; a CDN invalidation would make this immediate
+            # but needs an extra compute permission for the deploy account.
+            DEADLINE=$(( $(date +%s) + 900 ))
+            # Download, then read: `curl | head` makes curl exit 23 when head closes the pipe, and
+            # under pipefail that failed every check even when the banner matched (0.3.2 deploy).
+            served() {
+              curl -fsS -o alias.js "$CDN_SMOKE_URL" && head -c 200 alias.js | grep -q "Sfere SDK v${CDN_SMOKE_VERSION} "
+            }
+            until served; do
+              if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+                echo "::error::$CDN_SMOKE_URL still does not serve v${CDN_SMOKE_VERSION} after 15 minutes"
+                exit 1
+              fi
+              echo "Edge still serves the previous alias; retrying in 20 s"
+              sleep 20
+            done
+            echo "Edge serves v${CDN_SMOKE_VERSION} at $CDN_SMOKE_URL"
+            npx playwright test test/e2e/specs/cdn-smoke.spec.ts
           done
-          echo "Edge serves v${CDN_SMOKE_VERSION} at $CDN_SMOKE_URL"
-          npx playwright test test/e2e/specs/cdn-smoke.spec.ts
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()

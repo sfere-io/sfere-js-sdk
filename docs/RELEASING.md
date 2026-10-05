@@ -103,7 +103,15 @@ gh workflow run cdn-deploy.yml --ref main -f version=<X.Y.Z> -f alias_only=true
 ```
 
 As of 2026-09-29 the deploy account may overwrite `v0.1` to `v0.4`, so the
-next line that needs this is `v0.5`.
+next line that needs this is `v0.5`. `sdk/latest/` is always in the condition
+(`provision.sh` adds it), so it never needs a re-run of its own.
+
+### Before releasing a major
+
+A major also moves `/sdk/latest/`, which app-store apps and other embeds nobody
+can edit load. Check that an unchanged loader snippet still works against the
+new build before merging the Version Packages PR (see `CDN-POLICY.md`, "The
+latest channel").
 
 ## Prerelease flow
 

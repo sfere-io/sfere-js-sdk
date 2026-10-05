@@ -10,6 +10,7 @@ _Internal maintainer runbook. Last verified 2026-09-28. Start here if you are ta
 | Git tag + GitHub release | `v0.1.0`, with `sfere.min.js`, `sfere.js` and `manifest.json` attached | done |
 | CDN, immutable | `https://cdn.sfere.io/sdk/v0.1.0/sfere.min.js` | live, `Cache-Control: public, max-age=31536000, immutable` |
 | CDN, alias | `https://cdn.sfere.io/sdk/v0.1/sfere.min.js` | live, `Cache-Control: public, max-age=300, stale-while-revalidate=86400` |
+| CDN, latest | `https://cdn.sfere.io/sdk/latest/sfere.min.js` | newest stable release across all lines; for embeds nobody can edit. Same caching as an alias ([CDN-POLICY.md](CDN-POLICY.md#the-latest-channel-embeds-you-can-never-edit)) |
 | SonarQube Cloud | project `fanfinity_sfere-sdk` (org `fanfinity`) | quality gate passing on `main` |
 
 **Verified end to end on 2026-09-28:**
@@ -37,6 +38,12 @@ gh workflow run cdn-deploy.yml -R fanfinity/sfere-sdk --ref main -f version=0.1.
 ```
 
 A full deploy of an already-deployed version fails by design: immutable files are write-once. Use `alias_only=true` for rollbacks.
+
+`/sdk/latest/` follows on its own: forward on every newer stable release, and back on a rollback while it is on that line. To roll it back across lines (a bad new minor or major), add `-f force_latest=true`:
+
+```sh
+gh workflow run cdn-deploy.yml -R fanfinity/sfere-sdk --ref main -f version=0.3.2 -f alias_only=true -f force_latest=true
+```
 
 ### Before the second release of a new minor line (0.2.x, 0.3.x, …)
 
