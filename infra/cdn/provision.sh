@@ -126,6 +126,74 @@ run_idempotent() {
   return "$status"
 }
 
+# drop_stale_alias_bindings
+#   Remove superseded sfere-sdk-cdn-alias-overwrite bindings for the deploy SA:
+#   same role, member and title as the one just added, but an older condition
+#   (every re-run with a longer CDN_ALIASES used to leave one behind). The
+#   filter matches role + member + title before it removes anything, so other
+#   bindings on the same role — the jitsu deployer's, for one — are untouched.
+#   Failure is cosmetic (a leftover narrower binding grants nothing extra) and
+#   never stops provisioning. Needs python3 for the policy JSON; skipped without.
+drop_stale_alias_bindings() {
+  local policy_json dropped
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo "[dry-run] would drop superseded sfere-sdk-cdn-alias-overwrite bindings on gs://${BUCKET}"
+    return 0
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "  (python3 not found: leaving any superseded alias-overwrite bindings in place — narrower and harmless)"
+    return 0
+  fi
+  policy_json="$(mktemp)"
+  if ! gcloud storage buckets get-iam-policy "gs://${BUCKET}" --format=json > "$policy_json"; then
+    echo "  (could not read the bucket policy to tidy alias-overwrite bindings; the current one is in place)" >&2
+    rm -f "$policy_json"
+    return 0
+  fi
+  if dropped="$(python3 - "$PROJECT" "$ALIAS_ROLE_ID" "$DEPLOY_SA" "$ALIAS_CONDITION" "$policy_json" <<'PY'
+import json
+import sys
+
+project, role_id, sa, wanted, path = sys.argv[1:6]
+role = f"projects/{project}/roles/{role_id}"
+member = f"serviceAccount:{sa}"
+title = "sfere-sdk-cdn-alias-overwrite"
+
+with open(path) as fh:
+    policy = json.load(fh)
+
+kept, dropped = [], 0
+for binding in policy.get("bindings", []):
+    condition = binding.get("condition") or {}
+    if (
+        binding.get("role") == role
+        and member in binding.get("members", [])
+        and condition.get("title") == title
+        and condition.get("expression", "") != wanted
+    ):
+        dropped += 1
+        continue
+    kept.append(binding)
+
+policy["bindings"] = kept
+with open(path, "w") as fh:
+    json.dump(policy, fh, indent=2)
+print(dropped)
+PY
+)"; then
+    if [ "$dropped" != "0" ]; then
+      if gcloud storage buckets set-iam-policy "gs://${BUCKET}" "$policy_json" >/dev/null; then
+        echo "  (dropped ${dropped} superseded alias-overwrite binding(s); the policy now holds only the current condition)"
+      else
+        echo "  (failed to apply the tidied policy; superseded bindings remain — narrower and harmless)" >&2
+      fi
+    fi
+  else
+    echo "  (could not tidy superseded alias-overwrite bindings; the current one is in place)" >&2
+  fi
+  rm -f "$policy_json"
+}
+
 # ---------------------------------------------------------------------------
 # 1. The bucket: uniform bucket-level access, versioning on, public GET-only via
 #    a custom role (never the predefined roles/storage.objectViewer — see
@@ -220,14 +288,17 @@ for alias in latest $CDN_ALIASES; do
   ALIAS_CONDITION="${ALIAS_CONDITION:+${ALIAS_CONDITION} || }${clause}"
 done
 # --condition takes key=value pairs separated by commas; the expression contains
-# none (quotes, parentheses and || only), so it can be passed inline. Re-running
-# with a longer CDN_ALIASES adds a second, broader binding; the earlier narrower
-# one is a subset and harmless (remove it with remove-iam-policy-binding
-# --condition=... --all if you want a tidy policy).
+# none (quotes, parentheses and || only), so it can be passed inline. Adding the
+# binding is not idempotent across re-runs with a longer CDN_ALIASES: every run
+# would stack another binding with the same role, member and title. The cleanup
+# right after this drops the superseded ones, so the policy ends up holding
+# exactly one alias-overwrite condition: the current one.
 run_idempotent gcloud storage buckets add-iam-policy-binding "gs://${BUCKET}" \
   --member="serviceAccount:${DEPLOY_SA}" \
   --role="projects/${PROJECT}/roles/${ALIAS_ROLE_ID}" \
   --condition="expression=${ALIAS_CONDITION},title=sfere-sdk-cdn-alias-overwrite,description=Overwrite (delete) allowed only under the mutable alias prefixes"
+
+drop_stale_alias_bindings
 
 # Let sfere-sdk's GitHub Actions (and only sfere-sdk's) impersonate this SA via
 # the pool backend/README.md already stands up for the same project.

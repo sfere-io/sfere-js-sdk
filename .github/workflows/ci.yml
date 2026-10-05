@@ -63,6 +63,8 @@ jobs:
         run: npm run size
       - name: Verify dist contract
         run: npm run verify
+      - name: CDN publish script tests
+        run: bash packages/browser/scripts/tests/cdn-publish.test.sh
       - name: Pack dry run
         run: npm pack --dry-run --workspaces
 
