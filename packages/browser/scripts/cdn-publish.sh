@@ -135,7 +135,11 @@ current_latest() {
     printf '%s\n' "$out" | sed -nE 's/^ *"version": *"([^"]+)".*/\1/p' | head -n1
     return 0
   fi
-  if printf '%s\n' "$out" | grep -qiE 'No URLs matched|not found|404'; then
+  # "Not found" wording differs across gcloud versions: current gcloud prints
+  # "The following URLs matched no objects or files:", older ones "No URLs
+  # matched". Everything else (403 and up) is a real failure and must stop the
+  # publish — see the 2026-10-05 run, which aborted on this exact message.
+  if printf '%s\n' "$out" | grep -qiE 'matched no objects|No URLs matched|not found|404'; then
     return 0
   fi
   echo "cdn-publish: could not read ${LATEST_PREFIX}/manifest.json:" >&2
