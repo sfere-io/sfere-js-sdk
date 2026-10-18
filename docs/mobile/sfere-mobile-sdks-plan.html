@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sfere Mobile SDKs Plan</title>
+<meta name="description" content="Steps to build, test and release the Sfere iOS and Android SDKs.">
+<style>
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #f0f0ec;
+  --text: #1c1d1f;
+  --muted: #5d6066;
+  --border: #dcdcd6;
+  --accent: #0f766e;
+  --accent-soft: #e0f2ef;
+  --warn: #9a3412;
+  --warn-soft: #fdeee4;
+  --info: #1d4ed8;
+  --info-soft: #e5edff;
+  --ok: #166534;
+  --ok-soft: #e3f4e8;
+  --code-bg: #f3f3ef;
+  --shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121315;
+    --surface: #1a1b1e;
+    --surface-2: #222327;
+    --text: #e8e8e6;
+    --muted: #a0a3a8;
+    --border: #33353a;
+    --accent: #5eead4;
+    --accent-soft: #11302d;
+    --warn: #fdba74;
+    --warn-soft: #3a2316;
+    --info: #93b4ff;
+    --info-soft: #1b2440;
+    --ok: #86efac;
+    --ok-soft: #15301f;
+    --code-bg: #202125;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121315;
+  --surface: #1a1b1e;
+  --surface-2: #222327;
+  --text: #e8e8e6;
+  --muted: #a0a3a8;
+  --border: #33353a;
+  --accent: #5eead4;
+  --accent-soft: #11302d;
+  --warn: #fdba74;
+  --warn-soft: #3a2316;
+  --info: #93b4ff;
+  --info-soft: #1b2440;
+  --ok: #86efac;
+  --ok-soft: #15301f;
+  --code-bg: #202125;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 40px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  font-size: 14px;
+}
+nav.toc .brand { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+nav.toc .progress { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+nav.toc .bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin: 6px 0 16px; }
+nav.toc .bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; }
+nav.toc li { margin: 2px 0; }
+nav.toc a {
+  display: block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  text-decoration: none;
+}
+nav.toc a:hover { background: var(--surface-2); color: var(--text); }
+nav.toc .toc-tools { margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap; }
+button.small {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+button.small:hover { border-color: var(--accent); }
+main { min-width: 0; }
+header.hero { margin-bottom: 36px; }
+.eyebrow { color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+h1 { font-size: 34px; line-height: 1.2; margin: 6px 0 12px; letter-spacing: -.01em; }
+h2 {
+  font-size: 24px;
+  margin: 56px 0 14px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  scroll-margin-top: 16px;
+}
+h3 { font-size: 18px; margin: 28px 0 8px; scroll-margin-top: 16px; }
+p { margin: 0 0 14px; }
+.lede { font-size: 18px; color: var(--muted); max-width: 70ch; }
+.meta { color: var(--muted); font-size: 14px; }
+a { color: var(--accent); }
+code {
+  font: 0.9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--code-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+pre {
+  position: relative;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font: 13.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin: 0 0 16px;
+}
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+pre .copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 12px;
+  padding: 3px 8px;
+  opacity: .75;
+}
+pre .copy:hover { opacity: 1; }
+.code-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 14px 0 6px; }
+.table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+th { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+.callout {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--info);
+  background: var(--info-soft);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 0 0 18px;
+}
+.callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+.callout.ok { border-left-color: var(--ok); background: var(--ok-soft); }
+.callout strong:first-child { display: block; margin-bottom: 2px; }
+.callout p:last-child, .callout ul:last-child { margin-bottom: 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin: 0 0 20px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow); }
+.card h4 { margin: 0 0 6px; font-size: 15px; }
+.card p { margin: 0; font-size: 14.5px; color: var(--muted); }
+.pill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.pill.auto { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
+.pill.helper { background: var(--info-soft); color: var(--info); border-color: var(--info); }
+.pill.app { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.pill.server { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
+.pill.out { background: var(--surface-2); color: var(--muted); border-color: var(--border); }
+.phase {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px 8px;
+  margin: 0 0 18px;
+  box-shadow: var(--shadow);
+}
+.phase-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.phase-head h3 { margin: 0 0 4px; }
+.phase-count { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.phase > p { color: var(--muted); font-size: 15px; }
+ul.steps { list-style: none; margin: 0; padding: 0; }
+ul.steps li { border-top: 1px solid var(--border); padding: 10px 0; }
+ul.steps label { display: grid; grid-template-columns: 22px 1fr; gap: 10px; cursor: pointer; }
+ul.steps input[type="checkbox"] { width: 17px; height: 17px; margin-top: 4px; accent-color: var(--accent); }
+ul.steps .step-title { font-weight: 600; }
+ul.steps .step-body { color: var(--muted); font-size: 14.5px; margin-top: 2px; }
+ul.steps .step-body code { color: var(--text); }
+ul.steps li.done .step-title { text-decoration: line-through; color: var(--muted); }
+.step-id { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); margin-right: 6px; }
+figure.diagram { margin: 0 0 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+figure.diagram svg { display: block; width: 100%; max-width: 640px; height: auto; margin: 0 auto; }
+figure.diagram figcaption { font-size: 13.5px; color: var(--muted); text-align: center; margin-top: 8px; }
+svg .box { fill: var(--surface-2); stroke: var(--border); }
+svg .box.accent { fill: var(--accent-soft); stroke: var(--accent); }
+svg .box.net { fill: var(--info-soft); stroke: var(--info); }
+svg .t { fill: var(--text); font: 600 14px system-ui, sans-serif; }
+svg .s { fill: var(--muted); font: 12px system-ui, sans-serif; }
+svg .arrow { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+svg .head { fill: var(--muted); }
+ol.plain, ul.plain { padding-left: 22px; margin: 0 0 14px; }
+ol.plain li, ul.plain li { margin: 4px 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 13.5px; color: var(--muted); margin: 0 0 12px; }
+footer { margin-top: 60px; color: var(--muted); font-size: 13.5px; border-top: 1px solid var(--border); padding-top: 16px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 20px 16px 60px; gap: 8px; }
+  nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface); }
+  nav.toc ol { columns: 2; column-gap: 10px; }
+  h1 { font-size: 27px; }
+  h2 { font-size: 21px; }
+}
+@media (max-width: 480px) {
+  nav.toc ol { columns: 1; }
+}
+@media print {
+  nav.toc, pre .copy, .toc-tools { display: none; }
+  .layout { display: block; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" aria-label="Contents">
+  <div class="brand">Sfere Mobile SDKs</div>
+  <div class="progress"><span id="progress-text">0 of 0 steps done</span></div>
+  <div class="bar"><span id="progress-bar"></span></div>
+  <ol>
+    <li><a href="#summary">1. Summary</a></li>
+    <li><a href="#ingestion-platform">2. Ingestion platform vs Sfere</a></li>
+    <li><a href="#architecture">3. Architecture</a></li>
+    <li><a href="#api">4. Public API</a></li>
+    <li><a href="#events">5. Event catalog</a></li>
+    <li><a href="#payload">6. Wire payload</a></li>
+    <li><a href="#steps">7. Build steps</a></li>
+    <li><a href="#testing">8. Testing plan</a></li>
+    <li><a href="#gates">9. Release gates</a></li>
+    <li><a href="#release">10. Distribution</a></li>
+    <li><a href="#decisions">11. Decisions</a></li>
+    <li><a href="#sources">12. Sources</a></li>
+  </ol>
+  <div class="toc-tools">
+    <button class="small" id="theme-toggle" type="button">Toggle theme</button>
+    <button class="small" id="reset-progress" type="button">Clear ticks</button>
+  </div>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Plan · internal</div>
+  <h1>Building the Sfere iOS and Android SDKs</h1>
+  <p class="lede">Two native SDKs that collect first-party fan events in mobile apps and send them to the Sfere ingestion endpoint. They send the same payload as the existing browser and Node SDKs, and include CleverTap-style app events, renamed to fit Sfere's naming rules.</p>
+  <p class="meta">Written 2026-10-13. Based on the ingestion platform's iOS and Android docs, the CleverTap events reference, and <code>fanfinity/sfere-sdk</code> (README, ARCHITECTURE, WIRE-CONTRACT, EVENTS, HTTP-API, RELEASING, CI). The step checkboxes save in this browser only.</p>
+  <p class="meta">Moved to <code>docs/mobile/</code> on 2026-10-18. The repos ended up as <code>fanfinity/sfere-ios-sdk</code> and <code>fanfinity/sfere-android-sdk</code>; this plan calls them <code>sfere-ios</code> and <code>sfere-android</code>. The ingestion platform's vendor name was replaced with "the ingestion platform", following this repository's rule.</p>
+</header>
+
+<!-- 1 -->
+<h2 id="summary">1. Summary</h2>
+<div class="cards">
+  <div class="card"><h4>What we ship</h4><p><code>SfereAnalytics</code> (Swift Package) in repo <code>fanfinity/sfere-ios</code>, and <code>io.sfere:analytics</code> (Android AAR) in repo <code>fanfinity/sfere-android</code>. These names come from WIRE-CONTRACT §7.</p></div>
+  <div class="card"><h4>How we build it</h4><p>The same pattern as the browser SDK. Segment's open-source <code>analytics-swift</code> / <code>analytics-kotlin</code> stay unmodified as dependencies (MIT, not a fork), and Sfere adds plugins on top. The ingestion platform's own mobile docs use the same two libraries.</p></div>
+  <div class="card"><h4>What makes it Sfere</h4><p>Click IDs and campaign data from deep links, sessions, consent, dedup IDs, the library stamp, settings built into the code, and nothing sent to any third-party host.</p></div>
+  <div class="card"><h4>How we know it works</h4><p>Unit tests, contract tests against the existing mock ingestion server, simulator and emulator tests in CI, a staging smoke test, then a beta in one internal app before anyone else gets it.</p></div>
+</div>
+<div class="callout">
+  <strong>The contract already exists.</strong>
+  <p><code>docs/WIRE-CONTRACT.md</code> in the JS repo is the source of truth for the mobile SDKs too. It has a <em>Mobile</em> column whose rows are all marked <em>planned</em>, and it says: "A new SDK is done when its events match this page." This plan turns that column into work items and tests. As each item ships, update that column from <em>planned</em> to <em>live</em>.</p>
+</div>
+
+<!-- 2 -->
+<h2 id="ingestion-platform">2. What the ingestion platform does, and what Sfere adds</h2>
+<p>The ingestion platform doesn't write its own mobile SDKs. Its iOS and Android pages just point Segment's <code>analytics-swift</code> and <code>analytics-kotlin</code> at its own hosts. Sfere's browser SDK does the same with <code>analytics-next</code>, then adds an enrichment plugin. The mobile SDKs copy that: the platform's setup, plus Sfere's plugins.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Ingestion platform</th><th>Sfere mobile</th></tr></thead>
+<tbody>
+<tr><td>Base library</td><td>analytics-swift / analytics-kotlin, configured only</td><td>Same libraries, pinned exact version, wrapped by a thin Sfere facade with Sfere plugins</td></tr>
+<tr><td><code>writeKey</code></td><td>The platform's browser write key</td><td>Sfere <strong>browser key</strong> <code>keyId:secret</code>. It's public and only allows ingest. Never ship a server key in an app.</td></tr>
+<tr><td><code>apiHost</code></td><td><code>your-ingestion-domain.com</code></td><td><code>{host}/v1/batch</code>, without the scheme. The library posts to <code>{apiHost}/b</code>, so requests land on <code>/v1/batch/b</code> (WIRE-CONTRACT §1).</td></tr>
+<tr><td><code>cdnHost</code> (settings)</td><td>The platform serves a settings route</td><td><strong>No settings route on the Sfere ingress.</strong> Settings must be built into the code and never fetched (Spike A).</td></tr>
+<tr><td>Lifecycle events</td><td><code>trackApplicationLifecycleEvents(true)</code>, default Segment names</td><td>On, but renamed to Sfere snake_case (<code>app_installed</code>, <code>app_opened</code>, …)</td></tr>
+<tr><td>Flush</td><td><code>flushAt 3</code>, <code>flushInterval 10</code></td><td>Defaults <code>20</code> / <code>30s</code>, which the app can change. Batches are capped at 100 events and 500 KB.</td></tr>
+<tr><td>Retries</td><td>Library default</td><td>Retry network errors, 5xx and 429 with backoff, and don't retry other 4xx. <strong>Swift's <code>httpConfig</code> is <code>nil</code> by default, which means no retries</strong>, so we must set it.</td></tr>
+<tr><td>Enrichment</td><td>None</td><td><code>context.clientIds</code>, <code>campaign</code>, <code>session</code>, <code>consent</code>, <code>traits</code>, <code>library</code>, <code>app</code>, <code>properties.sfere_dedup_id</code></td></tr>
+<tr><td>Wire hygiene</td><td>Library default</td><td>Remove <code>_metadata</code> and <code>integrations</code> (unless the caller set it). Any key outside the contract needs an explicit decision, because each one becomes a warehouse column.</td></tr>
+</tbody>
+</table></div>
+
+<!-- 3 -->
+<h2 id="architecture">3. Architecture</h2>
+<figure class="diagram">
+<svg viewBox="0 0 640 520" role="img" aria-label="Event flow from the app through the Sfere facade, Sfere plugins and the base library queue, to the ingestion endpoint">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+  <rect class="box" x="170" y="10" width="300" height="56" rx="10"/>
+  <text class="t" x="320" y="34" text-anchor="middle">Client app</text>
+  <text class="s" x="320" y="53" text-anchor="middle">track · screen · identify · setConsent · openURL</text>
+  <path class="arrow" d="M320 66 V92" marker-end="url(#ah)"/>
+
+  <rect class="box accent" x="120" y="94" width="400" height="56" rx="10"/>
+  <text class="t" x="320" y="118" text-anchor="middle">Sfere facade</text>
+  <text class="s" x="320" y="137" text-anchor="middle">SfereAnalytics (Swift) · io.sfere:analytics (Kotlin) · config validation</text>
+  <path class="arrow" d="M320 150 V176" marker-end="url(#ah)"/>
+
+  <rect class="box accent" x="40" y="178" width="560" height="132" rx="10"/>
+  <text class="t" x="320" y="202" text-anchor="middle">Sfere plugins (enrichment, then sanitizer)</text>
+  <rect class="box" x="58" y="216" width="122" height="34" rx="6"/><text class="s" x="119" y="238" text-anchor="middle">lifecycle rename</text>
+  <rect class="box" x="190" y="216" width="122" height="34" rx="6"/><text class="s" x="251" y="238" text-anchor="middle">session.id</text>
+  <rect class="box" x="322" y="216" width="122" height="34" rx="6"/><text class="s" x="383" y="238" text-anchor="middle">consent · traits</text>
+  <rect class="box" x="454" y="216" width="128" height="34" rx="6"/><text class="s" x="518" y="238" text-anchor="middle">clientIds · campaign</text>
+  <rect class="box" x="58" y="260" width="122" height="34" rx="6"/><text class="s" x="119" y="282" text-anchor="middle">library · app</text>
+  <rect class="box" x="190" y="260" width="122" height="34" rx="6"/><text class="s" x="251" y="282" text-anchor="middle">sfere_dedup_id</text>
+  <rect class="box" x="322" y="260" width="122" height="34" rx="6"/><text class="s" x="383" y="282" text-anchor="middle">IDFA / GAID gate</text>
+  <rect class="box" x="454" y="260" width="128" height="34" rx="6"/><text class="s" x="518" y="282" text-anchor="middle">sanitizer</text>
+  <path class="arrow" d="M320 310 V336" marker-end="url(#ah)"/>
+
+  <rect class="box" x="120" y="338" width="400" height="56" rx="10"/>
+  <text class="t" x="320" y="362" text-anchor="middle">Base library (unmodified)</text>
+  <text class="s" x="320" y="381" text-anchor="middle">analytics-swift / analytics-kotlin · disk queue · batching · retry</text>
+  <path class="arrow" d="M320 394 V420" marker-end="url(#ah)"/>
+
+  <rect class="box net" x="120" y="422" width="400" height="56" rx="10"/>
+  <text class="t" x="320" y="446" text-anchor="middle">POST {host}/v1/batch/b</text>
+  <text class="s" x="320" y="465" text-anchor="middle">Basic base64("keyId:secret:") · writeKey in body · ≤100 events, ≤500 KB</text>
+  <text class="s" x="320" y="506" text-anchor="middle">Nothing goes to cdn-settings.segment.com, api.segment.io, or any other host</text>
+</svg>
+<figcaption>Every request goes to the configured <code>{host}</code>. The plugins are where all Sfere-specific behaviour lives.</figcaption>
+</figure>
+<h3>Repo layout</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Repo</th><th>Contents</th></tr></thead>
+<tbody>
+<tr><td><code>fanfinity/sfere-ios</code></td><td><code>Package.swift</code> (product <code>SfereAnalytics</code>), <code>Sources/SfereAnalytics/</code> (facade + plugins + <code>PrivacyInfo.xcprivacy</code>), <code>Tests/</code> (unit + contract), <code>Example/</code> (sample app + UI tests), <code>THIRD_PARTY_NOTICES.md</code>, CI workflows</td></tr>
+<tr><td><code>fanfinity/sfere-android</code></td><td>Gradle multi-module: <code>:analytics</code> (library, explicit API mode, consumer ProGuard rules), <code>:sample</code> (app + Espresso/Maestro flows), <code>THIRD_PARTY_NOTICES.md</code>, CI workflows</td></tr>
+<tr><td><code>fanfinity/sfere-sdk</code> (existing)</td><td>Gets updates: the Mobile column of WIRE-CONTRACT.md, a "Mobile app events" section in EVENTS.md, and shared test fixtures (deep-link URLs → expected <code>clientIds</code>, golden payloads) that all SDKs test against</td></tr>
+</tbody>
+</table></div>
+
+<!-- 4 -->
+<h2 id="api">4. Public API (target shape)</h2>
+<p>The facade hides the base library, so the base library can be replaced later without breaking client apps. Both platforms use the same method names, and the arguments follow the browser SDK.</p>
+<div class="code-label">Swift</div>
+<pre><code>import SfereAnalytics
+
+// AppDelegate.didFinishLaunching
+let config = SfereConfiguration(
+    writeKey: "keyId:secret",                 // browser key
+    host: "https://ingest.example.com"        // https origin, no path
+)
+config.sessionTimeoutMinutes = 30
+config.consent = ["analytics": true, "advertising": false]
+Sfere.setup(config)
+
+Sfere.shared.identify(userId: "user_123", traits: ["email": "fan@example.com"])
+Sfere.shared.screen("Match Center", properties: ["match_id": "42"])
+Sfere.shared.track("add_to_cart", properties: [
+    "currency": "SAR", "value": 89.99,
+    "items": [["item_id": "sku_12345", "item_name": "Away Jersey", "price": 89.99, "quantity": 1]]
+])
+Sfere.shared.purchase(Purchase(transactionId: "order_98765", currency: "SAR", value: 256.96, items: items))
+Sfere.shared.setConsent(["analytics": true, "advertising": true])
+Sfere.shared.openURL(url)                         // deep links and universal links
+Sfere.shared.setEnabled(false)                    // opt out
+Sfere.shared.reset()                              // logout
+Sfere.shared.flush()</code></pre>
+<div class="code-label">Kotlin</div>
+<pre><code>import io.sfere.analytics.Sfere
+import io.sfere.analytics.SfereConfig
+
+// Application.onCreate
+Sfere.setup(this, SfereConfig(
+    writeKey = "keyId:secret",
+    host = "https://ingest.example.com",
+    sessionTimeoutMinutes = 30,
+    consent = mapOf("analytics" to true, "advertising" to false),
+))
+
+Sfere.shared.identify("user_123", traits = mapOf("email" to "fan@example.com"))
+Sfere.shared.screen("Match Center", mapOf("match_id" to "42"))
+Sfere.shared.track("add_to_cart", mapOf(
+    "currency" to "SAR", "value" to 89.99,
+    "items" to listOf(mapOf("item_id" to "sku_12345", "price" to 89.99, "quantity" to 1)),
+))
+Sfere.shared.purchase(Purchase(transactionId = "order_98765", currency = "SAR", value = 256.96, items = items))
+Sfere.shared.setConsent(mapOf("analytics" to true, "advertising" to true))
+Sfere.shared.reset()</code></pre>
+<div class="table-wrap"><table>
+<thead><tr><th>Config option</th><th>Default</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><code>writeKey</code>, <code>host</code></td><td>required</td><td><code>host</code> must be an https origin with no path, checked the same way as the Node SDK's <code>parseHost</code>. Plain <code>http://</code> is allowed only in debug builds, for the local mock.</td></tr>
+<tr><td><code>flushAt</code> / <code>flushInterval</code></td><td>20 / 30 s</td><td>A flush also runs when the app goes to the background.</td></tr>
+<tr><td><code>sessionTimeoutMinutes</code></td><td>30</td><td>Inactivity based. Bringing the app to the foreground counts as activity.</td></tr>
+<tr><td><code>trackLifecycleEvents</code></td><td>true</td><td>Sfere names, see §5.</td></tr>
+<tr><td><code>trackDeepLinks</code></td><td>true</td><td>Reads click IDs and UTMs from links.</td></tr>
+<tr><td><code>autoTrackScreens</code></td><td>false</td><td>Optional: sends a screen event for each UIViewController / Activity.</td></tr>
+<tr><td><code>collectAdvertisingId</code></td><td>false</td><td>IDFA is sent only after ATT is authorised. GAID is sent only with advertising consent.</td></tr>
+<tr><td><code>consent</code></td><td>unset</td><td>Sets <code>context.consent.categoryPreferences</code>. The field is left out when unset.</td></tr>
+<tr><td><code>debug</code></td><td>false</td><td>Logs every payload and validation warning.</td></tr>
+</tbody>
+</table></div>
+
+<!-- 5 -->
+<h2 id="events">5. Event catalog: CleverTap events mapped to Sfere</h2>
+<div class="callout ok">
+  <strong>Decided 2026-10-13: GA4 snake_case.</strong>
+  <p>CleverTap uses Title Case names and its own purchase shape (<code>Charged</code> with <code>Items</code> and <code>Amount</code>). Sfere's founder decision #3 fixes <strong>GA4 snake_case names with <code>properties.items[]</code></strong>, so one instrumentation can feed analytics and server-side ad destinations. This plan keeps CleverTap's <em>coverage</em> and uses Sfere's <em>naming</em>. For example, <code>Charged</code> becomes <code>purchase</code>.</p>
+</div>
+<div class="legend">
+  <span><span class="pill auto">auto</span> sent by the SDK</span>
+  <span><span class="pill helper">helper</span> SDK method the app calls from its own handler</span>
+  <span><span class="pill app">app</span> app calls <code>track</code> with the documented name</span>
+  <span><span class="pill server">server</span> belongs in the Node SDK / HTTP API</span>
+  <span><span class="pill out">out</span> not applicable to a client SDK</span>
+</div>
+
+<h3>App lifecycle and sessions</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>CleverTap</th><th>Sfere event</th><th>How</th><th>Properties / notes</th></tr></thead>
+<tbody>
+<tr><td>App Installed</td><td><code>app_installed</code></td><td><span class="pill auto">auto</span></td><td><code>version</code>, <code>build</code>. Fires on first launch. On Android it also carries Play Install Referrer data in <code>context.campaign</code> / <code>clientIds</code>.</td></tr>
+<tr><td>App Launched</td><td><code>app_opened</code></td><td><span class="pill auto">auto</span></td><td><code>from_background</code> (bool), <code>url</code>, <code>referring_application</code>. Fires on cold start and when the app returns to the foreground.</td></tr>
+<tr><td>App Upgraded · App Version Changed</td><td><code>app_updated</code></td><td><span class="pill auto">auto</span></td><td><code>previous_version</code>, <code>previous_build</code>, <code>version</code>, <code>build</code>. CleverTap's two events become one.</td></tr>
+<tr><td>(no CleverTap equivalent)</td><td><code>app_backgrounded</code></td><td><span class="pill auto">auto</span></td><td>Also triggers a flush.</td></tr>
+<tr><td>Session Concluded</td><td><code>session_started</code> + <code>context.session.id</code></td><td><span class="pill auto">auto</span></td><td>A session-end event isn't reliable on mobile because the OS kills apps silently. Every event carries <code>session.id</code> (epoch ms), so the warehouse can work out session length and the end of each session.</td></tr>
+<tr><td>Web Session Started</td><td>(browser SDK)</td><td><span class="pill out">out</span></td><td>The browser SDK already handles this.</td></tr>
+<tr><td>App Uninstalled</td><td>none</td><td><span class="pill out">out</span></td><td>CleverTap detects uninstalls with silent pushes sent from its servers. An app can't report its own uninstall.</td></tr>
+</tbody>
+</table></div>
+
+<h3>Screens, attribution and identity</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>CleverTap</th><th>Sfere event</th><th>How</th><th>Properties / notes</th></tr></thead>
+<tbody>
+<tr><td>"screens viewed" metadata</td><td><code>screen</code> call</td><td><span class="pill app">app</span> / <span class="pill auto">auto</span> (opt-in)</td><td><code>name</code> + properties. Turn on <code>autoTrackScreens</code> for automatic tracking.</td></tr>
+<tr><td>UTM Visited</td><td><code>deep_link_opened</code></td><td><span class="pill auto">auto</span> (Android) / <span class="pill helper">helper</span> <code>openURL</code> (iOS)</td><td><code>url</code>, <code>referring_application</code>. UTMs and <code>gad_*</code> go to <code>context.campaign</code>. Click IDs go to <code>context.clientIds</code> and are kept for the session.</td></tr>
+<tr><td>Identity Set</td><td><code>identify</code> call</td><td><span class="pill app">app</span></td><td><code>userId</code> + traits. Email and phone are sent as plain values; the SDK never hashes them.</td></tr>
+<tr><td>Identity Reset</td><td><code>reset()</code></td><td><span class="pill app">app</span></td><td>Clears userId, traits and the session, and creates a new anonymousId.</td></tr>
+<tr><td>Identity Error · Reachable By · Push Unregistered</td><td>none</td><td><span class="pill out">out</span></td><td>These are CleverTap's own debug events.</td></tr>
+</tbody>
+</table></div>
+
+<h3>Push notifications (moved to v1.1, decided 2026-10-13)</h3>
+<p>None of these ship in v1. The table stays here so v1.1 starts from an agreed map.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>CleverTap</th><th>Sfere event</th><th>How</th><th>Properties / notes</th></tr></thead>
+<tbody>
+<tr><td>Channel Subscribed</td><td><code>push_permission_changed</code></td><td><span class="pill auto">auto</span></td><td><code>granted</code> (bool), <code>channel: "push"</code>. The SDK compares the permission state when the app comes to the foreground and sends the event when it changed (on Android 13+ the user grants it at runtime).</td></tr>
+<tr><td>Push Impressions · Notification Viewed (push)</td><td><code>notification_received</code></td><td><span class="pill helper">helper</span></td><td><code>trackNotificationReceived(payload)</code> fills <code>notification_id</code>, <code>campaign_id</code>, <code>source</code> (fcm / apns / provider). On iOS this needs a Notification Service Extension, so it's optional.</td></tr>
+<tr><td>Notification Clicked</td><td><code>notification_opened</code></td><td><span class="pill helper">helper</span></td><td>Same fields plus <code>action_id</code> (button). Click IDs or UTMs in the payload's deep link are read too.</td></tr>
+<tr><td>(device token)</td><td><code>context.device.token</code></td><td><span class="pill helper">helper</span></td><td><code>setPushToken(token)</code>. Only needed if Sfere will send pushes itself.</td></tr>
+<tr><td>Notification Sent · Failed · Delivered · Replied · Reply Sent · Channel Unsubscribed (email)</td><td>none</td><td><span class="pill server">server</span></td><td>The sending platform raises these, not the device.</td></tr>
+</tbody>
+</table></div>
+
+<h3>Commerce and custom events</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>CleverTap</th><th>Sfere event</th><th>How</th><th>Properties / notes</th></tr></thead>
+<tbody>
+<tr><td>Charged (with Items, Amount)</td><td><code>purchase</code></td><td><span class="pill app">app</span> (typed helper)</td><td><code>transaction_id</code>, <code>currency</code>, <code>value</code> (was <code>Amount</code>), <code>items[]</code> (was <code>Items</code>), <code>coupon</code>, <code>tax</code>, <code>shipping</code>. Set <code>sfere_dedup_id = transaction_id</code> when the server also sends the purchase.</td></tr>
+<tr><td>(GA4 funnel)</td><td><code>view_item</code>, <code>view_item_list</code>, <code>select_item</code>, <code>add_to_cart</code>, <code>remove_from_cart</code>, <code>add_to_wishlist</code>, <code>view_cart</code>, <code>begin_checkout</code>, <code>add_shipping_info</code>, <code>add_payment_info</code>, <code>refund</code>, <code>search</code>, <code>sign_up</code>, <code>login</code>, <code>generate_lead</code></td><td><span class="pill app">app</span> (typed helpers)</td><td>Exactly as in EVENTS.md, with Swift/Kotlin types that match the TypeScript <code>Item</code>, <code>PurchaseProperties</code>, …</td></tr>
+<tr><td>Custom events</td><td>any snake_case name</td><td><span class="pill app">app</span></td><td><code>track("match_ticket_scanned", …)</code>. Passed through unchanged; debug mode warns about non-snake_case names.</td></tr>
+<tr><td>CT Coupon Rewarded / Redeemed / Reverted · Points Credited / Debited · Partner Voucher · Custom Reward</td><td><code>coupon_rewarded</code>, <code>coupon_redeemed</code>, <code>points_credited</code>, …</td><td><span class="pill server">server</span></td><td>The backend that issues the reward knows these, so send them from the Node SDK with the same snake_case names.</td></tr>
+<tr><td>Geocluster Entered / Exited · AB Test / Experiment · State Transitioned · Partner Sync</td><td>none</td><td><span class="pill out">out</span></td><td>These belong to CleverTap's own platform features.</td></tr>
+</tbody>
+</table></div>
+
+<h3>Property rules (borrowed from CleverTap and WIRE-CONTRACT)</h3>
+<ul class="plain">
+  <li>Event names are at most 128 characters, snake_case, and use GA4 names where one exists.</li>
+  <li><code>messageId</code> is unique, uses only <code>[A-Za-z0-9._-]</code>, and is at most 64 characters. The library's UUID meets this. Add a test for it.</li>
+  <li><code>value</code> is a number, and <code>currency</code> is an ISO 4217 code whenever <code>value</code> is set.</li>
+  <li>Allowed types are string, number, bool, nested objects and arrays. Following CleverTap's limits, debug mode warns about arrays longer than 100 and strings longer than 512 characters. Nothing is dropped silently.</li>
+  <li>Keep property names flat and predictable, because every distinct name becomes a warehouse column.</li>
+</ul>
+
+<!-- 6 -->
+<h2 id="payload">6. Wire payload (what the tests check)</h2>
+<p>This is one batch as it should arrive at <code>/v1/batch/b</code>. The contract tests compare real output against this shape and against the browser SDK's payload for the same event.</p>
+<pre><code>{
+  "writeKey": "keyId:secret",
+  "sentAt": "2026-10-13T10:00:05.000Z",
+  "batch": [{
+    "type": "track",
+    "event": "add_to_cart",
+    "messageId": "9f1c2e0a-6b1d-4c55-9e1f-1a2b3c4d5e6f",
+    "anonymousId": "c0ffee00-...",
+    "userId": "user_123",
+    "timestamp": "2026-10-13T10:00:00.000Z",
+    "properties": {
+      "currency": "SAR", "value": 89.99,
+      "items": [{ "item_id": "sku_12345", "item_name": "Away Jersey", "price": 89.99, "quantity": 1 }],
+      "sfere_dedup_id": "9f1c2e0a-6b1d-4c55-9e1f-1a2b3c4d5e6f"
+    },
+    "context": {
+      "library":  { "name": "@fanfinity/sfere-ios", "version": "0.1.0", "base": "analytics-swift@1.10.0" },
+      "app":      { "name": "Club App", "version": "3.2.0", "build": "412", "namespace": "com.club.app" },
+      "device":   { "manufacturer": "Apple", "model": "iPhone16,2", "type": "ios" },
+      "os":       { "name": "iOS", "version": "18.0" },
+      "locale": "ar-SA", "timezone": "Asia/Riyadh",
+      "session":  { "id": 1760349600000 },
+      "consent":  { "categoryPreferences": { "analytics": true, "advertising": false } },
+      "traits":   { "email": "fan@example.com" },
+      "campaign": { "source": "instagram", "medium": "paid", "name": "derby" },
+      "clientIds": { "gclid": "CjwKCAj...", "fbc": "fb.1.1760349600000.IwAR..." }
+    }
+  }]
+}</code></pre>
+<div class="callout warn">
+  <strong>Must never appear:</strong>
+  <p><code>_metadata</code>; <code>integrations</code> (unless the caller set it); <code>context.device.advertisingId</code> filled with zeros; hashed email or phone; any <code>clientIds</code> key outside the fixed list <code>fbp, fbc, ttp, ttclid, scid, scclid, epik, li_fat_id, msclkid, oppref, obref, gclid, wbraid, gbraid, twclid, rdt_cid, clarity_uid, clarity_sid</code>. Base-library extras such as <code>context.instanceId</code> are either approved or removed, one key at a time.</p>
+</div>
+
+<!-- 7 -->
+<h2 id="steps">7. Build steps</h2>
+<p>The phases run in order. Inside a phase, the iOS and Android work can run in parallel. Phase 0 is the most important one: it proves the risky assumptions before anyone writes the SDK.</p>
+
+<section class="phase" data-phase>
+  <div class="phase-head"><h3>Phase 0: Decisions and spikes</h3><span class="phase-count"></span></div>
+  <p>Answer the open questions and prove the unknowns with throwaway code.</p>
+  <ul class="steps">
+    <li><label><input type="checkbox" data-step="0.1"><div><div class="step-title"><span class="step-id">0.1</span>Write down the event names</div><div class="step-body">Decided: GA4 snake_case plus the map in §5. Add a "Mobile app events" section to <code>EVENTS.md</code> in the JS repo so every SDK documents the same names.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="0.2"><div><div class="step-title"><span class="step-id">0.2</span>Confirm minimum OS versions</div><div class="step-body">Distribution is decided (§10). Proposed minimums: iOS 15+ and Android API 21+. Check these against the base libraries' own minimums.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="0.3"><div><div class="step-title"><span class="step-id">0.3</span>Get a staging browser key and host for mobile</div><div class="step-body">Use a separate stream or key per platform, if the platform allows it, so iOS and Android events are easy to tell apart.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="0.4"><div><div class="step-title"><span class="step-id">0.4</span>Spike A: settings fetch, with zero third-party requests</div><div class="step-body">Neither library has a flag that turns off the settings fetch, and the Sfere ingress has no settings route. Options to try: inline <code>defaultSettings</code> plus a custom <code>httpSession</code> (Swift) or <code>RequestFactory</code> (Kotlin) that answers the settings request locally; or a static settings JSON on <code>cdn.sfere.io</code>. <strong>Pass condition:</strong> a 10-minute session through a proxy (Proxyman or mitmproxy) shows requests only to <code>{host}</code>.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="0.5"><div><div class="step-title"><span class="step-id">0.5</span>Spike B: one event from each library to staging <code>/v1/batch/b</code></div><div class="step-body">Use a <em>browser</em> key. Record the raw request: is the Basic auth header there, and is <code>writeKey</code> in the body? Record the response (<code>okEvents == receivedEvents</code>) and the 5xx/429 retry behaviour once <code>httpConfig</code> is set.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="0.6"><div><div class="step-title"><span class="step-id">0.6</span>Spike C: find where <code>_metadata</code> and <code>integrations</code> get added</div><div class="step-body">Work out whether a late enrichment plugin can remove them or whether the destination adds them after the plugins run. If it's the destination, wrap the upload in the request layer. Prove the fix with a unit test, as the browser SDK did.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="0.7"><div><div class="step-title"><span class="step-id">0.7</span>Write the results into WIRE-CONTRACT.md</div><div class="step-body">Add a "Mobile" note under §1 and §2 with the verified behaviour and the date, in the same style as the existing "verified on staging" notes.</div></div></label></li>
+  </ul>
+</section>
+
+<section class="phase" data-phase>
+  <div class="phase-head"><h3>Phase 1: Repos and scaffolding</h3><span class="phase-count"></span></div>
+  <ul class="steps">
+    <li><label><input type="checkbox" data-step="1.1"><div><div class="step-title"><span class="step-id">1.1</span>Create <code>fanfinity/sfere-ios</code> and <code>fanfinity/sfere-android</code></div><div class="step-body">Copy CODEOWNERS, the PR template, SECURITY.md and branch protection from the JS repo. Like it, require <code>check</code> and <code>e2e</code> to pass on every PR.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="1.2"><div><div class="step-title"><span class="step-id">1.2</span>Pin the base libraries to exact versions</div><div class="step-body">At the time of writing these are analytics-swift 1.10.x and analytics-kotlin 1.18.x. Check the latest release on build day. Add <code>THIRD_PARTY_NOTICES.md</code> (MIT) and let Dependabot propose updates.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="1.3"><div><div class="step-title"><span class="step-id">1.3</span>Lint, format and API checks</div><div class="step-body">iOS: SwiftLint and swift-format, plus <code>swift package diagnose-api-breaking-changes</code> in CI. Android: ktlint or detekt, explicit API mode, and the Kotlin binary-compatibility-validator, so public API changes show up in review.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="1.4"><div><div class="step-title"><span class="step-id">1.4</span>CI skeleton</div><div class="step-body">iOS: a GitHub Actions macOS runner running <code>xcodebuild test</code> on a simulator. Android: <code>./gradlew check</code> on Ubuntu, plus an emulator job (<code>reactivecircus/android-emulator-runner</code>).</div></div></label></li>
+    <li><label><input type="checkbox" data-step="1.5"><div><div class="step-title"><span class="step-id">1.5</span>Version constant from the build</div><div class="step-body">Generate the version from the release tag, so <code>context.library.version</code> always matches what was published. Add a test that compares the two.</div></div></label></li>
+  </ul>
+</section>
+
+<section class="phase" data-phase>
+  <div class="phase-head"><h3>Phase 2: Core wrapper</h3><span class="phase-count"></span></div>
+  <ul class="steps">
+    <li><label><input type="checkbox" data-step="2.1"><div><div class="step-title"><span class="step-id">2.1</span>Configuration with validation</div><div class="step-body">Add every option in §4. Reject a <code>host</code> that has a path or isn't https (http is allowed in debug only). Warn when the key looks like a server key, if the two kinds can be told apart.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="2.2"><div><div class="step-title"><span class="step-id">2.2</span>Map config to the base library</div><div class="step-body">Set <code>apiHost = host + "/v1/batch"</code> (without the scheme), add the inline settings from Spike A, turn on <code>httpConfig</code> retry and backoff, and set <code>flushAt</code> / <code>flushInterval</code>. Set the lifecycle event list explicitly, because Swift tracks <code>.all</code> by default.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="2.3"><div><div class="step-title"><span class="step-id">2.3</span>Facade methods</div><div class="step-body"><code>identify</code>, <code>track</code>, <code>screen</code>, <code>group</code>, <code>alias</code>, <code>reset</code>, <code>flush</code>, <code>setConsent</code>, <code>openURL</code>, <code>setEnabled</code>. Push helpers come in v1.1. Public methods never throw or crash the host app. Bad input is logged in debug mode.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="2.4"><div><div class="step-title"><span class="step-id">2.4</span>Typed GA4 e-commerce models</div><div class="step-body"><code>Item</code>, <code>Purchase</code>, <code>Refund</code>, … mirroring the TypeScript types in the JS SDK. They serialise to exactly the EVENTS.md keys, which a fixture test checks.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="2.5"><div><div class="step-title"><span class="step-id">2.5</span>Java and Objective-C friendliness</div><div class="step-body">Android: <code>@JvmStatic</code> and <code>@JvmOverloads</code> so Java apps can call the SDK. iOS: decide whether Objective-C apps matter. If they do, add an <code>@objc</code> shim.</div></div></label></li>
+  </ul>
+</section>
+
+<section class="phase" data-phase>
+  <div class="phase-head"><h3>Phase 3: Sfere plugins (port of the browser enrichment)</h3><span class="phase-count"></span></div>
+  <ul class="steps">
+    <li><label><input type="checkbox" data-step="3.1"><div><div class="step-title"><span class="step-id">3.1</span>Library stamp</div><div class="step-body"><code>context.library = { name: "@fanfinity/sfere-ios" | "@fanfinity/sfere-android", version, base: "analytics-swift@x.y.z" }</code>, replacing the base library's own stamp.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="3.2"><div><div class="step-title"><span class="step-id">3.2</span>Session</div><div class="step-body"><code>context.session.id</code> is epoch ms, saved to disk, and rotates after <code>sessionTimeoutMinutes</code> without activity. Foregrounding counts as activity. Sends <code>session_started</code> on each rotation.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="3.3"><div><div class="step-title"><span class="step-id">3.3</span>Consent</div><div class="step-body"><code>context.consent.categoryPreferences</code> comes from config or <code>setConsent</code>, is saved, applies from the next event, and is left out when unknown.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="3.4"><div><div class="step-title"><span class="step-id">3.4</span>Carried traits</div><div class="step-body">Copy identify traits into <code>context.traits</code> on later events, as the browser does (<code>carryTraits</code>). <code>reset()</code> clears them.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="3.5"><div><div class="step-title"><span class="step-id">3.5</span>Dedup ID</div><div class="step-body">On <code>track</code> only: keep the caller's <code>sfere_dedup_id</code>, otherwise use <code>messageId</code>.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="3.6"><div><div class="step-title"><span class="step-id">3.6</span>App context</div><div class="step-body">Check that <code>context.app</code> has <code>{ name, version, build, namespace }</code> with those exact keys. Fill in whatever the base library leaves out.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="3.7"><div><div class="step-title"><span class="step-id">3.7</span>Sanitizer (runs last)</div><div class="step-body">Removes <code>_metadata</code>, removes <code>integrations</code> unless the caller set it, removes unapproved extras, and keeps only allowed <code>clientIds</code> keys.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="3.8"><div><div class="step-title"><span class="step-id">3.8</span>Debug validation</div><div class="step-body">Warns about event names longer than 128 characters, names that aren't snake_case, a <code>value</code> that isn't a number, <code>value</code> without <code>currency</code>, items missing <code>item_id</code> or <code>item_name</code>, and the size limits in §5.</div></div></label></li>
+  </ul>
+</section>
+
+<section class="phase" data-phase>
+  <div class="phase-head"><h3>Phase 4: Automatic app events</h3><span class="phase-count"></span></div>
+  <p>Push tracking (<code>push_permission_changed</code>, <code>notification_received</code>, <code>notification_opened</code>, <code>setPushToken</code>) is v1.1.</p>
+  <ul class="steps">
+    <li><label><input type="checkbox" data-step="4.1"><div><div class="step-title"><span class="step-id">4.1</span>Lifecycle rename plugin</div><div class="step-body">Renames <code>Application Installed / Opened / Updated / Backgrounded</code> and <code>Deep Link Opened</code> to <code>app_installed</code>, <code>app_opened</code>, <code>app_updated</code>, <code>app_backgrounded</code> and <code>deep_link_opened</code>. Property keys become snake_case too. A unit test checks each one.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="4.3"><div><div class="step-title"><span class="step-id">4.2</span>Optional auto screen tracking</div><div class="step-body">UIViewController (iOS) and Activity lifecycle callbacks (Android). Off by default, because automatic names are often useless (for example "MainActivity").</div></div></label></li>
+  </ul>
+</section>
+
+<section class="phase" data-phase>
+  <div class="phase-head"><h3>Phase 5: Attribution (deep links, install referrer)</h3><span class="phase-count"></span></div>
+  <ul class="steps">
+    <li><label><input type="checkbox" data-step="5.1"><div><div class="step-title"><span class="step-id">5.1</span>Deep link parser</div><div class="step-body">Reads custom schemes, iOS Universal Links and Android App Links. <code>utm_*</code>, <code>gad_source</code> and <code>gad_campaignid</code> go to <code>context.campaign</code>. <code>gclid, wbraid, gbraid, ttclid, ScCid→scclid, twclid, epik, msclkid, li_fat_id, oppref, rdt_cid</code> go to <code>context.clientIds</code>, and <code>fbclid</code> becomes <code>fbc = fb.1.&lt;ms&gt;.&lt;fbclid&gt;</code>. Values are kept for the session, and a newer click replaces an older one.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="5.2"><div><div class="step-title"><span class="step-id">5.2</span>Shared fixtures with the JS repo</div><div class="step-body">Move the URL-to-identifier maps from <code>packages/shared</code> into a JSON fixture (input URL → expected <code>clientIds</code> / <code>campaign</code>). Run the browser, Node, iOS and Android tests against that same file, so the SDKs can't drift apart.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="5.3"><div><div class="step-title"><span class="step-id">5.3</span>Android Play Install Referrer</div><div class="step-body">Read it once with <code>com.android.installreferrer</code>, parse it with the same parser, and attach it to <code>app_installed</code>. Save it so the first session's events carry it too.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="5.4"><div><div class="step-title"><span class="step-id">5.4</span>iOS install attribution (document it, build it later)</div><div class="step-body">iOS has no install referrer. Deferred deep links come from the app's link provider and are passed to <code>openURL</code>. Apple's AdServices attribution token can be a later addition.</div></div></label></li>
+  </ul>
+</section>
+
+<section class="phase" data-phase>
+  <div class="phase-head"><h3>Phase 6: Privacy and store compliance</h3><span class="phase-count"></span></div>
+  <ul class="steps">
+    <li><label><input type="checkbox" data-step="6.1"><div><div class="step-title"><span class="step-id">6.1</span>Advertising ID gate</div><div class="step-body">Send IDFA only when <code>collectAdvertisingId</code> is on and ATT is authorised. Send GAID only when advertising consent is granted and limit-ad-tracking is off. Otherwise leave out <code>advertisingId</code> and <code>adTrackingEnabled</code>; never send zeros. The SDK never shows the ATT prompt; the app does.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="6.2"><div><div class="step-title"><span class="step-id">6.2</span><code>PrivacyInfo.xcprivacy</code> in the Swift package</div><div class="step-body">List the data types collected, the required-reason APIs (UserDefaults, file timestamps, system boot time if the base library uses them) and <code>NSPrivacyTracking</code>. If IDFA is collected, set tracking to true and declare the tracking domain. Check it with Xcode's privacy report.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="6.3"><div><div class="step-title"><span class="step-id">6.3</span>Android <code>AD_ID</code> permission and Data safety</div><div class="step-body">Put the <code>AD_ID</code> permission and the GAID dependency in an optional module (or document how to remove them), so apps that don't use GAID don't have to declare it. Write a Data safety form guide for client apps.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="6.4"><div><div class="step-title"><span class="step-id">6.4</span>Opt-out behaviour</div><div class="step-body"><code>setEnabled(false)</code> stops collection and deletes the queue that hasn't been sent yet. The setting survives app restarts. Write this down in the README.</div></div></label></li>
+  </ul>
+</section>
+
+<section class="phase" data-phase>
+  <div class="phase-head"><h3>Phase 7: Testing</h3><span class="phase-count"></span></div>
+  <p>The detailed plan is in §8. The steps here are the build work it needs.</p>
+  <ul class="steps">
+    <li><label><input type="checkbox" data-step="7.1"><div><div class="step-title"><span class="step-id">7.1</span>Unit test suites (both repos)</div><div class="step-body">Every plugin, plus the parser and config validation. Use a fake clock for sessions. CI enforces coverage above 85% on <code>Sources/</code> and <code>:analytics</code>.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="7.2"><div><div class="step-title"><span class="step-id">7.2</span>Make the mock ingestion server reusable</div><div class="step-body">Run <code>mock-ingest.mjs</code> from the JS repo standalone, or move it to a shared tools package. Add fault injection (for example <code>POST /__fail {status: 503, count: 2}</code>) and bind it to <code>0.0.0.0</code> as an option so physical devices can reach it.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="7.3"><div><div class="step-title"><span class="step-id">7.3</span>Golden payload fixtures</div><div class="step-body">One JSON file per event type, with dynamic values (IDs, timestamps) masked. All SDKs compare against these files.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="7.4"><div><div class="step-title"><span class="step-id">7.4</span>Sample app UI tests</div><div class="step-body">XCUITest on iOS and Espresso or Maestro on Android. The tests drive the sample app, then read <code>/__events</code> and check the results.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="7.5"><div><div class="step-title"><span class="step-id">7.5</span>Staging smoke script</div><div class="step-body">A CI job that you start by hand (with the key stored as a secret) sends one of each event to staging with the browser key and fails unless <code>okEvents == receivedEvents</code>. This is the mobile version of <code>staging-smoke.mjs</code>.</div></div></label></li>
+  </ul>
+</section>
+
+<section class="phase" data-phase>
+  <div class="phase-head"><h3>Phase 8: Sample apps and docs</h3><span class="phase-count"></span></div>
+  <ul class="steps">
+    <li><label><input type="checkbox" data-step="8.1"><div><div class="step-title"><span class="step-id">8.1</span>Sample apps</div><div class="step-body">A button for every event in §5, a settings screen (host, key, timeout, consent switches), an ATT prompt button, a live list of sent payloads, and a deep-link scheme <code>sfereexample://</code>.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="8.2"><div><div class="step-title"><span class="step-id">8.2</span>README for client developers</div><div class="step-body">Install, setup, events, e-commerce, consent and ATT, deep links, push, opt-out, privacy manifest and Data safety, and troubleshooting. Following the JS repo's rule, describe the ingestion endpoint in general terms only.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="8.3"><div><div class="step-title"><span class="step-id">8.3</span>Update the JS repo docs</div><div class="step-body">In WIRE-CONTRACT.md, change the Mobile column from <em>planned</em> to <em>live</em> with dates. Link the mobile READMEs from the root README table.</div></div></label></li>
+  </ul>
+</section>
+
+<section class="phase" data-phase>
+  <div class="phase-head"><h3>Phase 9: Release</h3><span class="phase-count"></span></div>
+  <ul class="steps">
+    <li><label><input type="checkbox" data-step="9.1"><div><div class="step-title"><span class="step-id">9.1</span>Release automation</div><div class="step-body">Semver tags, CHANGELOG and GitHub releases, set up like the JS repo's flow (a version PR, then publishing on merge). iOS: the tag is the release. Android: publish the AAR, then download it again from the registry and check it before tagging, as the JS release does with <code>dist/</code>.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="9.2"><div><div class="step-title"><span class="step-id">9.2</span>Beta: <code>0.1.0-beta.1</code></div><div class="step-body">Put it in one internal Fanfinity app on TestFlight and Play internal testing for one to two weeks. Compare its numbers against the app's current analytics.</div></div></label></li>
+    <li><label><input type="checkbox" data-step="9.3"><div><div class="step-title"><span class="step-id">9.3</span>General release: <code>1.0.0</code></div><div class="step-body">Only after every gate in §9 passes. After that, breaking API changes need a major version.</div></div></label></li>
+  </ul>
+</section>
+
+<!-- 8 -->
+<h2 id="testing">8. Testing plan: before anyone else uses it</h2>
+<p>Five layers, from fast to slow. Layers 1 to 3 run on every PR. Layers 4 and 5 run before every release.</p>
+
+<h3>Layer 1: Unit tests (seconds, every PR)</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Area</th><th>Cases</th></tr></thead>
+<tbody>
+<tr><td>Config</td><td>A host with a path is rejected, http is rejected in release builds, the apiHost string comes out right, and the default values are correct.</td></tr>
+<tr><td>Session</td><td>The same id within the timeout, a new id after it (fake clock), foregrounding resets the idle timer, the id survives a restart, and <code>session_started</code> fires once per rotation.</td></tr>
+<tr><td>Consent / traits</td><td>Consent is left out when unset, applies from the next event, and survives a restart. Traits are carried to later events, and <code>reset()</code> clears them.</td></tr>
+<tr><td>Dedup</td><td>The caller's value is kept, the default is <code>messageId</code>, and the field is never added to non-track events.</td></tr>
+<tr><td>Parser</td><td>Every row of the shared URL fixture, <code>fbclid → fbc</code> format, a newer click replacing an older one, unknown params ignored, and broken URLs not crashing.</td></tr>
+<tr><td>Rename / sanitizer</td><td>Each lifecycle name maps correctly. <code>_metadata</code> is gone, <code>integrations</code> is gone unless the caller set it, and only allowed <code>clientIds</code> keys are left.</td></tr>
+<tr><td>Ad ID gate</td><td>ATT denied, not determined or restricted: no IDFA. Advertising consent false: no GAID. Never zeros.</td></tr>
+<tr><td>Transport</td><td>Using MockWebServer (Android) or <code>URLProtocol</code> stubs (iOS): Basic auth header present, <code>writeKey</code> in the body, retries on 503/429 with backoff, no retry on 400/401, at most 100 events per batch.</td></tr>
+<tr><td>Concurrency</td><td>1,000 events from 10 threads: none lost, no duplicates, no crash.</td></tr>
+</tbody>
+</table></div>
+
+<h3>Layer 2: Contract tests against the mock ingestion server (every PR)</h3>
+<p>The SDK runs in the test process or on the simulator, sends events to <code>mock-ingest.mjs</code>, and the test reads <code>GET /__events</code>. Each payload must match its golden fixture and the WIRE-CONTRACT rules.</p>
+<pre><code># from a checkout of fanfinity/sfere-sdk: ingest listens on http://127.0.0.1:4311
+node packages/browser/test/e2e/mock-ingest.mjs
+
+curl -s http://127.0.0.1:4311/__events | jq '.[-1]'   # last request received
+curl -s -X POST http://127.0.0.1:4311/__reset          # clear between tests</code></pre>
+<div class="callout">
+  <strong>Reaching the local mock from a simulator or emulator</strong>
+  <ul class="plain">
+    <li>Both base libraries add <code>https://</code> to the host. In debug builds only, the Sfere facade lets <code>host</code> be <code>http://…</code> and rewrites the scheme in the request layer (<code>requestFactory</code>).</li>
+    <li>iOS simulator: <code>127.0.0.1</code> is your Mac. Add <code>NSAllowsLocalNetworking</code> to the sample app's ATS settings, in debug only.</li>
+    <li>Android emulator: your Mac is <code>10.0.2.2</code>. Allow cleartext traffic to that address with a debug-only <code>network_security_config.xml</code>.</li>
+    <li>Physical devices: bind the mock to <code>0.0.0.0</code> and use your Mac's LAN IP, or put Proxyman or mitmproxy in front of staging.</li>
+  </ul>
+</div>
+
+<h3>Layer 3: Simulator and emulator flows (every PR, in CI)</h3>
+<p>The sample app is driven by UI tests. Each scenario checks the events the mock received.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Scenario</th><th>How</th><th>Expect</th></tr></thead>
+<tbody>
+<tr><td>Fresh install</td><td>Uninstall, install, launch</td><td><code>app_installed</code> then <code>app_opened</code>, the same <code>session.id</code>, and <code>library</code> and <code>app</code> present</td></tr>
+<tr><td>Upgrade</td><td>Install build N, then N+1 over it</td><td><code>app_updated</code> with <code>previous_version</code></td></tr>
+<tr><td>Deep link</td><td><code>xcrun simctl openurl booted "sfereexample://match/42?utm_source=instagram&amp;gclid=TEST&amp;fbclid=IwAR_test"</code><br><code>adb shell am start -W -a android.intent.action.VIEW -d "sfereexample://match/42?utm_source=instagram&amp;gclid=TEST" com.sfere.example</code></td><td><code>deep_link_opened</code>. That event and the ones after it carry <code>campaign.source</code>, <code>clientIds.gclid</code> and <code>clientIds.fbc</code></td></tr>
+<tr><td>Offline queue</td><td>Turn on airplane mode (or stop the mock), send 200 events, then reconnect</td><td>All 200 arrive exactly once, in batches of 100 or fewer</td></tr>
+<tr><td>Kill and restart</td><td>Queue events offline, force-stop the app, relaunch it online</td><td>The saved queue is sent and nothing is lost</td></tr>
+<tr><td>Session rotation</td><td>Timeout set to 1 min in the test config. Background the app for 70 s, then foreground it</td><td>A new <code>session.id</code> and <code>session_started</code></td></tr>
+<tr><td>Consent change</td><td>Switch advertising consent in the sample settings</td><td>The next event has the new <code>categoryPreferences</code>, and GAID appears or disappears with it</td></tr>
+<tr><td>ATT</td><td>Allow, then deny (reset with <code>xcrun simctl privacy booted reset all</code>)</td><td>IDFA only when allowed</td></tr>
+<tr><td>Server errors</td><td>Mock fault injection: 503 twice, then 200; then 429; then 400</td><td>Retried and delivered for 503 and 429; dropped with no retry for 400</td></tr>
+<tr><td>Logout</td><td><code>reset()</code></td><td>A new <code>anonymousId</code>, no <code>userId</code>, no carried traits</td></tr>
+<tr><td>Opt-out</td><td><code>setEnabled(false)</code>, use the app, restart it</td><td>Nothing received</td></tr>
+</tbody>
+</table></div>
+
+<h3>Layer 4: Real devices and staging (before every release)</h3>
+<ul class="plain">
+  <li><strong>Device matrix:</strong> the oldest and newest supported iOS, at least one older iPhone, the oldest and newest supported Android, a low-memory Android, and one Samsung and one Xiaomi phone (both are aggressive about killing background apps).</li>
+  <li><strong>Network capture:</strong> a 10-minute session through Proxyman or mitmproxy. Every request goes to <code>{host}</code>, with zero requests to <code>segment.com</code> or <code>segment.io</code>.</li>
+  <li><strong>Staging smoke:</strong> every event in §5 with the browser key on <code>/v1/batch/b</code>, <code>okEvents == receivedEvents</code>, and the events show up in the staging warehouse with <strong>no new columns</strong> beyond the ones approved.</li>
+  <li><strong>Same as the browser:</strong> send <code>add_to_cart</code> from the browser SDK and from each mobile SDK, then compare the stored rows field by field. The only differences should be platform fields (<code>page</code> vs <code>app</code>/<code>device</code>/<code>os</code>).</li>
+  <li><strong>Cost to the host app:</strong> how much the SDK adds to binary size (set a budget after the first build), time added to cold start (target under 10 ms on the main thread), and memory with 10,000 queued events.</li>
+  <li><strong>Store checks:</strong> an Xcode privacy report with no warnings, a TestFlight upload accepted, and a Play pre-launch report with no SDK crashes or policy warnings.</li>
+</ul>
+
+<h3>Layer 5: Beta pilot (before 1.0.0)</h3>
+<ul class="plain">
+  <li>Put <code>0.1.0-beta.x</code> into one internal Fanfinity app on TestFlight and Play internal testing, for one to two weeks.</li>
+  <li>Compare daily counts of opens, screens and purchases with the analytics the app already uses. Aim for a difference within ±5%, and investigate anything bigger.</li>
+  <li>The crash-free rate must not drop, and no crash may have an SDK frame at the top of its stack.</li>
+  <li>Someone who didn't build the SDK adds it to a blank app using only the README, in under 30 minutes. Fix every place they get stuck.</li>
+</ul>
+
+<!-- 9 -->
+<h2 id="gates">9. Release gates (definition of done for 1.0.0)</h2>
+<section class="phase" data-phase>
+  <div class="phase-head"><h3>All must be ticked</h3><span class="phase-count"></span></div>
+  <ul class="steps">
+    <li><label><input type="checkbox" data-step="g1"><div><div class="step-title">Unit, contract and simulator/emulator tests pass in CI on both platforms</div></div></label></li>
+    <li><label><input type="checkbox" data-step="g2"><div><div class="step-title">Every v1 event in §5 (everything except push) has been seen on the mock and on staging, with <code>okEvents == receivedEvents</code></div></div></label></li>
+    <li><label><input type="checkbox" data-step="g3"><div><div class="step-title">Zero requests to any host other than <code>{host}</code> (proxy capture attached to the release)</div></div></label></li>
+    <li><label><input type="checkbox" data-step="g4"><div><div class="step-title">No <code>_metadata</code> or unrequested <code>integrations</code>, and the payload keys match the browser SDK for the same event</div></div></label></li>
+    <li><label><input type="checkbox" data-step="g5"><div><div class="step-title">Offline, kill-and-restart and retry scenarios: zero events lost in 3 runs in a row</div></div></label></li>
+    <li><label><input type="checkbox" data-step="g6"><div><div class="step-title">Privacy: ATT denied gives no IDFA, no advertising consent gives no GAID, and the privacy manifest and Data safety guide are reviewed</div></div></label></li>
+    <li><label><input type="checkbox" data-step="g7"><div><div class="step-title">Size and startup cost within budget</div></div></label></li>
+    <li><label><input type="checkbox" data-step="g8"><div><div class="step-title">Beta pilot: no SDK crashes, and counts within ±5% of the app's existing analytics</div></div></label></li>
+    <li><label><input type="checkbox" data-step="g9"><div><div class="step-title">README test passed by someone outside the team, and WIRE-CONTRACT Mobile column marked live</div></div></label></li>
+  </ul>
+</section>
+
+<!-- 10 -->
+<h2 id="release">10. Distribution: how client developers get it</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Option</th><th>iOS</th><th>Android</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td><strong>Public, from 1.0.0</strong></td><td>Swift Package Manager from a public <code>sfere-ios</code> repo (tags are versions)</td><td>Maven Central under <code>io.sfere</code>. Requires a DNS TXT record on <code>sfere.io</code> to prove the namespace, and GPG-signed artifacts</td><td>Easiest for clients: no tokens. The code is visible, which is normal for client-side SDKs (Segment's and CleverTap's are open source).</td></tr>
+<tr><td><strong>Private, during beta</strong></td><td>SPM from a private repo, so each client needs GitHub access</td><td>GitHub Packages Maven, so every client needs a GitHub token with <code>read:packages</code>, even just to install it</td><td>Fine for Fanfinity's own apps, but adds friction for outside developers.</td></tr>
+<tr><td>Binary-only</td><td>XCFramework attached to the release</td><td>AAR file</td><td>Hides the source, but loses automatic updates and makes adding the dependency harder.</td></tr>
+</tbody>
+</table></div>
+<div class="callout ok"><strong>Decided 2026-10-13: private now, public later.</strong><p>During beta, the SDKs stay private (SPM from a private repo, and GitHub Packages Maven), so only Fanfinity's own apps use them. At 1.0.0 they move to a public SPM repo and Maven Central. Start the <code>io.sfere</code> namespace check on Maven Central early, because it needs a DNS record on <code>sfere.io</code>. Keep the repo history free of secrets from day one, so making it public later is just a visibility switch.</p></div>
+<p>Skip CocoaPods. Its trunk is scheduled to become read-only in December 2026, and SPM is now the standard.</p>
+
+<!-- 11 -->
+<h2 id="decisions">11. Decisions</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Topic</th><th>Decision</th><th>Date</th></tr></thead>
+<tbody>
+<tr><td>Event naming</td><td>GA4 snake_case with the §5 map. CleverTap's coverage, Sfere's names.</td><td>2026-10-13</td></tr>
+<tr><td>Distribution</td><td>Private (private SPM repo + GitHub Packages) during beta, public (SPM + Maven Central) at 1.0.0.</td><td>2026-10-13</td></tr>
+<tr><td>Push tracking</td><td>Not in v1. Helpers and permission tracking come in v1.1.</td><td>2026-10-13</td></tr>
+<tr><td>Cross-platform</td><td><code>@fanfinity/sfere-react-native</code> wraps these native SDKs, so sessions, the offline queue and attribution live in one place per platform. Flutter only if a client needs it.</td><td>2026-10-13</td></tr>
+</tbody>
+</table></div>
+<h3>Still open</h3>
+<ol class="plain">
+  <li><strong>Minimum OS.</strong> iOS 15+ and Android API 21+ proposed. This depends on the oldest OS versions your client apps support.</li>
+  <li><strong>Objective-C support on iOS.</strong> Only needed if a client app is still written in Objective-C (step 2.5).</li>
+</ol>
+
+<!-- 12 -->
+<h2 id="sources">12. Sources</h2>
+<ul class="plain">
+  <li>The ingestion platform's iOS and Android integration docs (not linked, because this repository does not name the vendor).</li>
+  <li><a href="https://docs.clevertap.com/docs/events">CleverTap: events</a></li>
+  <li><a href="https://github.com/fanfinity/sfere-sdk">fanfinity/sfere-sdk</a>: <code>docs/WIRE-CONTRACT.md</code>, <code>docs/EVENTS.md</code>, <code>docs/ARCHITECTURE.md</code>, <code>docs/HTTP-API.md</code>, <code>docs/RELEASING.md</code>, <code>docs/CI.md</code>, <code>packages/browser/test/e2e/mock-ingest.mjs</code></li>
+  <li><a href="https://github.com/segmentio/analytics-swift">segmentio/analytics-swift</a> (<code>Configuration.swift</code>) and <a href="https://github.com/segmentio/analytics-kotlin">segmentio/analytics-kotlin</a> (<code>Configuration.kt</code>)</li>
+</ul>
+
+<footer>Sfere mobile SDKs plan · 2026-10-13 · Internal working document.</footer>
+</main>
+</div>
+
+<script>
+(function () {
+  var STORE_KEY = "sfere-mobile-plan-steps";
+  var THEME_KEY = "sfere-mobile-plan-theme";
+
+  function readStore(key, fallback) {
+    try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; }
+  }
+  function writeStore(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* storage blocked */ }
+  }
+
+  var savedTheme = readStore(THEME_KEY, null);
+  if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+  document.getElementById("theme-toggle").addEventListener("click", function () {
+    var current = document.documentElement.getAttribute("data-theme");
+    if (!current) current = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    var next = current === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    writeStore(THEME_KEY, next);
+  });
+
+  var doneSteps = readStore(STORE_KEY, {});
+  var boxes = Array.prototype.slice.call(document.querySelectorAll("input[data-step]"));
+
+  function refresh() {
+    var doneCount = 0;
+    boxes.forEach(function (box) {
+      box.closest("li").classList.toggle("done", box.checked);
+      if (box.checked) doneCount++;
+    });
+    document.getElementById("progress-text").textContent = doneCount + " of " + boxes.length + " steps done";
+    document.getElementById("progress-bar").style.width = (boxes.length ? (100 * doneCount / boxes.length) : 0) + "%";
+    document.querySelectorAll("[data-phase]").forEach(function (phase) {
+      var phaseBoxes = phase.querySelectorAll("input[data-step]");
+      var phaseDone = phase.querySelectorAll("input[data-step]:checked").length;
+      phase.querySelector(".phase-count").textContent = phaseDone + " / " + phaseBoxes.length;
+    });
+  }
+
+  boxes.forEach(function (box) {
+    box.checked = !!doneSteps[box.dataset.step];
+    box.addEventListener("change", function () {
+      doneSteps[box.dataset.step] = box.checked;
+      writeStore(STORE_KEY, doneSteps);
+      refresh();
+    });
+  });
+  document.getElementById("reset-progress").addEventListener("click", function () {
+    doneSteps = {};
+    writeStore(STORE_KEY, doneSteps);
+    boxes.forEach(function (box) { box.checked = false; });
+    refresh();
+  });
+
+  document.querySelectorAll("pre").forEach(function (pre) {
+    var btn = document.createElement("button");
+    btn.className = "small copy";
+    btn.type = "button";
+    btn.textContent = "Copy";
+    btn.addEventListener("click", function () {
+      var text = pre.querySelector("code").innerText;
+      var done = function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy"; }, 1200); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {});
+    });
+    pre.appendChild(btn);
+  });
+
+  refresh();
+})();
+</script>
+</body>
+</html>
