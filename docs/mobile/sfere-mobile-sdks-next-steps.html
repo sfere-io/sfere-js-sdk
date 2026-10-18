@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sfere SDKs Next Steps</title>
+<meta name="description" content="The work left on the Sfere iOS and Android SDKs, the decisions it needs, and the exact steps to follow.">
+<style>
+:root {
+  --bg: #f7f7f5; --surface: #ffffff; --surface-2: #f0f0ec; --text: #1c1d1f; --muted: #5d6066;
+  --border: #dcdcd6; --accent: #0f766e; --accent-soft: #e0f2ef; --warn: #9a3412; --warn-soft: #fdeee4;
+  --info: #1d4ed8; --info-soft: #e5edff; --ok: #166534; --ok-soft: #e3f4e8; --code-bg: #f3f3ef;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121315; --surface: #1a1b1e; --surface-2: #222327; --text: #e8e8e6; --muted: #a0a3a8;
+    --border: #33353a; --accent: #5eead4; --accent-soft: #11302d; --warn: #fdba74; --warn-soft: #3a2316;
+    --info: #93b4ff; --info-soft: #1b2440; --ok: #86efac; --ok-soft: #15301f; --code-bg: #202125;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121315; --surface: #1a1b1e; --surface-2: #222327; --text: #e8e8e6; --muted: #a0a3a8;
+  --border: #33353a; --accent: #5eead4; --accent-soft: #11302d; --warn: #fdba74; --warn-soft: #3a2316;
+  --info: #93b4ff; --info-soft: #1b2440; --ok: #86efac; --ok-soft: #15301f; --code-bg: #202125;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 40px; max-width: 1200px; margin: 0 auto; padding: 32px 24px 80px; }
+nav.toc { position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; font-size: 14px; }
+nav.toc .brand { font-weight: 700; margin-bottom: 4px; }
+nav.toc .sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; }
+nav.toc a { display: block; padding: 4px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+nav.toc a:hover { background: var(--surface-2); color: var(--text); }
+.tools { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+button { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
+main { min-width: 0; }
+.eyebrow { color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+h1 { font-size: 32px; line-height: 1.2; margin: 6px 0 12px; }
+h2 { font-size: 23px; margin: 52px 0 14px; padding-top: 8px; border-top: 1px solid var(--border); scroll-margin-top: 16px; }
+h3 { font-size: 18px; margin: 0 0 6px; }
+p { margin: 0 0 14px; }
+.lede { font-size: 18px; color: var(--muted); max-width: 72ch; }
+.meta { color: var(--muted); font-size: 14px; }
+a { color: var(--accent); }
+code { font: .9em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 8px 0 12px; }
+pre code { background: none; padding: 0; overflow-wrap: normal; }
+.callout { border: 1px solid var(--border); border-left: 4px solid var(--info); background: var(--info-soft); border-radius: 8px; padding: 12px 16px; margin: 0 0 18px; }
+.callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+.callout.ok { border-left-color: var(--ok); background: var(--ok-soft); }
+.callout p:last-child, .callout ul:last-child { margin-bottom: 0; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); margin: 0 0 18px; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+th { background: var(--surface-2); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+.decision { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin: 0 0 14px; }
+.decision.answered { border-color: var(--accent); }
+.decision-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.decision .why { color: var(--muted); font-size: 14.5px; margin: 2px 0 10px; }
+.state { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.decision.answered .state { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.option { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+.option:hover { background: var(--surface-2); }
+.option input { margin-top: 5px; accent-color: var(--accent); width: 16px; height: 16px; }
+.option .label { font-weight: 600; }
+.option .desc { color: var(--muted); font-size: 14px; }
+.rec { font-size: 11.5px; font-weight: 700; color: var(--accent); margin-left: 6px; text-transform: uppercase; letter-spacing: .04em; }
+textarea { width: 100%; min-height: 54px; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; resize: vertical; }
+.phase { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px 6px; margin: 0 0 16px; }
+.phase-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.phase > p { color: var(--muted); font-size: 14.5px; }
+.needs { font-size: 12.5px; color: var(--muted); }
+.needs b { color: var(--warn); }
+ol.steps { margin: 0; padding: 0; list-style: none; }
+ol.steps > li { border-top: 1px solid var(--border); padding: 10px 0; }
+.sid { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); margin-right: 6px; }
+.stitle { font-weight: 600; }
+.sbody { color: var(--muted); font-size: 14.5px; margin-top: 2px; }
+.sbody code { color: var(--text); }
+.done-when { font-size: 14px; margin-top: 6px; }
+.done-when::before { content: "Done when: "; font-weight: 600; color: var(--ok); }
+.status { font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; }
+.status.todo { background: var(--surface-2); color: var(--muted); }
+.status.done { background: var(--ok-soft); color: var(--ok); }
+.result { margin-top: 4px; font-size: 13.5px; color: var(--ok); }
+.result.blocked { color: var(--warn); }
+.status.blocked { background: var(--warn-soft); color: var(--warn); }
+.export { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 12px 0; margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.export .count { color: var(--muted); font-size: 14px; }
+#export-fallback { display: none; width: 100%; min-height: 160px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+footer { margin-top: 56px; color: var(--muted); font-size: 13.5px; border-top: 1px solid var(--border); padding-top: 14px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 20px 16px 60px; gap: 8px; }
+  nav.toc { position: static; max-height: none; border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface); }
+  h1 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <div class="brand">Sfere SDKs: next steps</div>
+  <div class="sub">State at commit <code>e45e9c3</code></div>
+  <ol>
+    <li><a href="#how">1. How to use this page</a></li>
+    <li><a href="#where">2. Where things stand</a></li>
+    <li><a href="#decisions">3. Decisions for you</a></li>
+    <li><a href="#steps">4. Steps, in order</a></li>
+    <li><a href="#rules">5. Rules for every round</a></li>
+    <li><a href="#record">6. Decision record</a></li>
+  </ol>
+  <div class="tools">
+    <button type="button" id="theme-toggle">Toggle theme</button>
+  </div>
+</nav>
+
+<main>
+<header>
+  <div class="eyebrow">Sfere mobile SDKs · working plan</div>
+  <h1>Next steps for the iOS and Android SDKs</h1>
+  <p class="lede">What's left before the SDKs reach a beta app, the decisions that work needs from you, and the exact steps Claude follows in later sessions.</p>
+  <p class="meta">Written 2026-10-14, updated 2026-10-18. Repositories: <code>fanfinity/sfere-ios-sdk</code> and <code>fanfinity/sfere-android-sdk</code>. The project rules and run commands are in each repository's <code>CLAUDE.md</code>, and the original plan is in <code>sfere-mobile-sdks-plan.html</code> next to this page.</p>
+</header>
+
+<div class="callout">
+  <p><strong>Split on 2026-10-18.</strong> The combined repository <code>fanfinity/sfere-mobile-sdks</code> was deleted. The SDKs now live in <code>fanfinity/sfere-ios-sdk</code> and <code>fanfinity/sfere-android-sdk</code>, with history kept, and this page moved to <code>docs/mobile/</code> in <code>fanfinity/sfere-sdk</code>. Update it there with a docs PR.</p>
+  <p>Step results dated before the split use the old layout and commit hashes: <code>ios/Example</code> is now <code>Example/</code> in the iOS repo, <code>android/sample</code> is <code>sample/</code> in the Android repo, and the rewritten history gave every commit a new hash. Parity now spans both repositories: <code>tools/parity.sh</code>, identical in both, checks the shared fixtures and compares the payloads. CI (phase E) needs a cross-repo parity job.</p>
+</div>
+
+<h2 id="how">1. How to use this page</h2>
+<div class="callout">
+  <p><strong>You:</strong> answer the decisions in section 3. Pick an option and add a note if you want. Then press <em>Copy decisions</em> and paste the text to Claude, or press <em>Download decisions.md</em> and tell Claude where the file is. Your choices are kept in this browser until you send them.</p>
+</div>
+<div class="callout ok">
+  <p><strong>Claude, in a later session:</strong></p>
+  <ul>
+    <li>Read the repository's <code>CLAUDE.md</code>, then this file.</li>
+    <li>Copy the user's answers into the JSON block in section 6 (<code>#decision-record</code>), with the date. That block is the durable record; the browser storage is not.</li>
+    <li>Do the steps in section 4 in order. Skip a step only when its "needs" decisions are answered with a choice that rules it out.</li>
+    <li>When a step is done, change its status label from <code>todo</code> to <code>done</code>. Add the date and the commit hash, and keep the repository's <code>CLAUDE.md</code> current in the same change.</li>
+    <li>Ask with AskUserQuestion when a step needs a decision that section 6 doesn't have yet.</li>
+  </ul>
+</div>
+
+<h2 id="where">2. Where things stand</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Area</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>iOS SDK (<code>SfereAnalytics</code>, on analytics-swift 1.10.x)</td><td>Built. 40 tests pass (<code>swift test</code>). Ran inside the sample app on a simulator on 2026-10-15 (phase D2).</td></tr>
+<tr><td>Android SDK (<code>io.sfere:analytics</code>, on analytics-kotlin 1.26.0)</td><td>Built. 28 JVM tests pass and the release AAR builds. <code>Sfere.setup(context)</code>, the SharedPreferences store and the Android lifecycle and context plugins have never run on a device or emulator.</td></tr>
+<tr><td>Same payload on both platforms</td><td>The parity scenario matches on every field the SDKs control (<code>tools/parity.sh</code> in either repository). Platform context (device, os, app, …) is not compared yet, because the Android tests run without Android.</td></tr>
+<tr><td>Staging</td><td>Never contacted. It's unknown whether a browser key works on <code>/v1/batch/b</code> and whether the ingress accepts gzip.</td></tr>
+<tr><td>Sample apps and mock server</td><td>Built on 2026-10-15: <code>Example/</code> in the iOS repo, <code>sample/</code> in the Android repo, and <code>tools/mock_ingest.mjs</code> in both. The iOS app passed every D2 flow on a simulator; the Android app has not run on an emulator yet.</td></tr>
+<tr><td>UI tests, CI, publishing</td><td>None yet.</td></tr>
+<tr><td>Git</td><td>Split on 2026-10-18 into the private repos <code>github.com/fanfinity/sfere-ios-sdk</code> and <code>github.com/fanfinity/sfere-android-sdk</code>; the combined <code>github.com/fanfinity/sfere-mobile-sdks</code> was deleted. Pushes go over HTTPS with the <code>gh</code> login.</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="decisions">3. Decisions for you</h2>
+<p>Each decision lists the steps it unblocks. The first option is the recommendation.</p>
+<div id="decision-list"></div>
+<div class="export">
+  <button type="button" class="primary" id="copy-decisions">Copy decisions</button>
+  <button type="button" id="download-decisions">Download decisions.md</button>
+  <button type="button" id="clear-decisions">Clear my answers</button>
+  <span class="count" id="answered-count"></span>
+  <textarea id="export-fallback" readonly aria-label="Decisions text to copy"></textarea>
+</div>
+
+<h2 id="steps">4. Steps, in order</h2>
+<p>Each phase is one working session. Before any heavy step (simulator, emulator, Gradle, Xcode), check memory as the global rules say: one heavy job at a time, and stop the daemons afterwards.</p>
+<div id="phase-list"></div>
+
+<h2 id="rules">5. Rules for every round</h2>
+<ul>
+  <li><strong>Same on both platforms.</strong> Any change to what one SDK sends is made on both in the same commit, and the task <code>Parity: compare iOS and Android payloads</code> must report every event as "same".</li>
+  <li><strong>Tests before done.</strong> Run <code>Test: both SDKs</code> (<code>Cmd+Shift+B</code>) and quote the real counts.</li>
+  <li><strong>No vendor names.</strong> Never name the ingestion vendor; say "ingestion endpoint".</li>
+  <li><strong>Secrets</strong> go only in the project <code>.env</code> (git-ignored, <code>chmod 600</code>), with project-specific names such as <code>SFERE_MOBILE_STAGING_WRITE_KEY</code>. Tests never read the real <code>.env</code>.</li>
+  <li><strong>Git:</strong> commit only when the user asks, and never with an AI attribution trailer.</li>
+  <li><strong>Machine safety:</strong> measure memory before simulators, emulators and builds; never run two of them at once; stop the Gradle and Kotlin daemons and shut down simulators when done.</li>
+</ul>
+
+<h2 id="record">6. Decision record</h2>
+<p>Claude updates this block when you send your answers.</p>
+<pre><code id="decision-record-view"></code></pre>
+<script type="application/json" id="decision-record">
+{
+  "updated": "2026-10-18",
+  "answers": {
+    "Q1": {
+      "value": null,
+      "status": "open"
+    },
+    "Q2": {
+      "values": [
+        "app",
+        "device",
+        "os",
+        "locale",
+        "timezone",
+        "userAgent",
+        "screen",
+        "network"
+      ],
+      "note": "Keep all eight; drop none."
+    },
+    "Q3": {
+      "value": "two-private",
+      "note": "Answered 'not-yet' on 2026-10-15, changed to 'one-private' the same day (github.com/fanfinity/sfere-mobile-sdks). Superseded 2026-10-18: the user had that repo deleted and split into two private repos, fanfinity/sfere-ios-sdk and fanfinity/sfere-android-sdk, because apps integrate the SDKs differently. History kept."
+    },
+    "Q4": {
+      "value": "native"
+    },
+    "Q5": {
+      "value": "v1-off"
+    },
+    "Q6": {
+      "value": "yes"
+    },
+    "Q7": {
+      "value": "pr"
+    },
+    "Q8": {
+      "value": "pr"
+    },
+    "Q9": {
+      "value": "named",
+      "note": "sfere-sdk-demo (owner not given)"
+    }
+  },
+  "other": {
+    "xcodegen": "Install approved 2026-10-15 for C1.",
+    "repo-split": "2026-10-18: delete the GitHub repo only (keep this local folder); split into sfere-ios-sdk and sfere-android-sdk with history; commit and push both.",
+    "plan-docs-home": "2026-10-18: this page and the plan page move to fanfinity/sfere-sdk; open that PR only when the user asks.",
+    "testing-issue": "2026-10-18: issue #1 recreated in each new repo, assigned to the same two testers."
+  }
+}
+</script>
+
+<footer>Sfere mobile SDKs · next steps · written 2026-10-14 at commit e45e9c3.</footer>
+</main>
+</div>
+
+<script type="application/json" id="plan-data">
+{
+  "decisions": [
+    {
+      "id": "Q1",
+      "title": "Staging access for the mobile SDKs",
+      "why": "The only way to verify the real endpoint: browser-key acceptance on /v1/batch/b, the response format, and gzip support.",
+      "unblocks": [
+        "A1",
+        "A2",
+        "A3",
+        "A4"
+      ],
+      "options": [
+        {
+          "value": "provide",
+          "label": "I'll give you a staging host and a mobile browser key",
+          "desc": "Send them in chat. Claude writes them to the project .env as SFERE_MOBILE_STAGING_HOST and SFERE_MOBILE_STAGING_WRITE_KEY, never into code."
+        },
+        {
+          "value": "later",
+          "label": "Not yet, skip staging for now",
+          "desc": "Phase A waits. Everything else continues against the local mock."
+        }
+      ]
+    },
+    {
+      "id": "Q2",
+      "title": "Platform context the base libraries add",
+      "why": "Every key becomes a warehouse column. Today both SDKs send what Segment's libraries add (device without id, os, app, screen, network, locale, timezone, userAgent).",
+      "unblocks": [
+        "B1"
+      ],
+      "multi": true,
+      "options": [
+        {
+          "value": "app",
+          "label": "app (name, version, build, namespace)",
+          "desc": "In the contract (§4). Keep.",
+          "default": true
+        },
+        {
+          "value": "device",
+          "label": "device (manufacturer, model, type)",
+          "desc": "Useful for debugging and segmentation.",
+          "default": true
+        },
+        {
+          "value": "os",
+          "label": "os (name, version)",
+          "desc": "Useful for debugging and segmentation.",
+          "default": true
+        },
+        {
+          "value": "locale",
+          "label": "locale",
+          "desc": "Language for Arabic/English splits.",
+          "default": true
+        },
+        {
+          "value": "timezone",
+          "label": "timezone",
+          "desc": "Small and useful.",
+          "default": true
+        },
+        {
+          "value": "userAgent",
+          "label": "userAgent",
+          "desc": "Ad platforms match on it (Meta CAPI client_user_agent).",
+          "default": true
+        },
+        {
+          "value": "screen",
+          "label": "screen (width, height, density)",
+          "desc": "Rarely used, so the recommendation is to drop it.",
+          "default": false
+        },
+        {
+          "value": "network",
+          "label": "network (wifi, cellular, bluetooth)",
+          "desc": "Rarely used, so the recommendation is to drop it.",
+          "default": false
+        }
+      ],
+      "note": "Ticked = keep. Unticked = the sanitizers strip it on both platforms."
+    },
+    {
+      "id": "Q3",
+      "title": "Where the code lives on GitHub",
+      "why": "Needed before CI, the beta release and the Swift package URL. Swift Package Manager installs from a git URL.",
+      "unblocks": [
+        "F1",
+        "G1"
+      ],
+      "options": [
+        {
+          "value": "one-private",
+          "label": "One private repo: fanfinity/sfere-mobile-sdks",
+          "desc": "The current layout as is: Package.swift at the root, android/ beside it."
+        },
+        {
+          "value": "two-private",
+          "label": "Two private repos: fanfinity/sfere-ios and fanfinity/sfere-android",
+          "desc": "Matches the first plan's naming. Needs a split, and the shared fixtures copied or vendored into both."
+        },
+        {
+          "value": "not-yet",
+          "label": "Keep it local for now",
+          "desc": "CI and publishing wait."
+        }
+      ]
+    },
+    {
+      "id": "Q4",
+      "title": "UI test tool for sample-app flows",
+      "why": "Drives the sample apps on a simulator or emulator: install, deep links, offline, kill and restart, consent.",
+      "unblocks": [
+        "D2",
+        "D3"
+      ],
+      "options": [
+        {
+          "value": "native",
+          "label": "Native: XCUITest + Espresso",
+          "desc": "No extra tools to install, and it works in CI out of the box. Two sets of tests."
+        },
+        {
+          "value": "maestro",
+          "label": "Maestro (one YAML flow for both)",
+          "desc": "One flow file per scenario for both platforms. Needs Maestro installed (brew) plus Java."
+        }
+      ]
+    },
+    {
+      "id": "Q5",
+      "title": "Advertising IDs in v1 (IDFA / GAID)",
+      "why": "They improve ad-platform matching, but add the ATT, AD_ID permission and privacy-manifest work (plan phase 6.1).",
+      "unblocks": [
+        "E3"
+      ],
+      "options": [
+        {
+          "value": "v1-off",
+          "label": "In v1, off by default (collectAdvertisingId)",
+          "desc": "IDFA only after ATT is authorised, GAID only with advertising consent. Apps opt in."
+        },
+        {
+          "value": "later",
+          "label": "Not in v1",
+          "desc": "Ship without advertising IDs. Click IDs from deep links still work."
+        }
+      ]
+    },
+    {
+      "id": "Q6",
+      "title": "Play Install Referrer in v1 (Android)",
+      "why": "It attributes installs from Play Store links (utm and gclid) to app_installed. It adds Google's small install-referrer library.",
+      "unblocks": [
+        "E2"
+      ],
+      "options": [
+        {
+          "value": "yes",
+          "label": "Yes, in v1",
+          "desc": "The referrer is read once at install, using the same parser and fixtures as deep links."
+        },
+        {
+          "value": "later",
+          "label": "Later",
+          "desc": "Installs keep no campaign data until then."
+        }
+      ]
+    },
+    {
+      "id": "Q7",
+      "title": "CI",
+      "why": "Runs the tests on every change. macOS runners cost more minutes.",
+      "unblocks": [
+        "F1"
+      ],
+      "options": [
+        {
+          "value": "pr",
+          "label": "GitHub Actions on every PR (both platforms)",
+          "desc": "Same gate as the JS repo: check plus parity. Simulator and emulator jobs only on main or nightly."
+        },
+        {
+          "value": "nightly",
+          "label": "GitHub Actions nightly only",
+          "desc": "Cheaper, but problems show up later."
+        },
+        {
+          "value": "none",
+          "label": "No CI yet",
+          "desc": "Tests run locally only."
+        }
+      ]
+    },
+    {
+      "id": "Q8",
+      "title": "Update the shared contract docs in fanfinity/sfere-sdk",
+      "why": "WIRE-CONTRACT.md says a mobile SDK is done when it matches; its Mobile column and EVENTS.md need the mobile event names and the verified behaviour.",
+      "unblocks": [
+        "H1"
+      ],
+      "options": [
+        {
+          "value": "pr",
+          "label": "Claude opens a PR there (you review and merge)",
+          "desc": "The changes touch only the docs: the Mobile column, a mobile app events section, and the shared fixtures."
+        },
+        {
+          "value": "me",
+          "label": "I'll update it myself",
+          "desc": "Claude writes the proposed text into a local file for you."
+        }
+      ]
+    },
+    {
+      "id": "Q9",
+      "title": "Beta pilot app",
+      "why": "The plan's last gate: one internal Fanfinity app runs the beta for 1 to 2 weeks before 1.0.0.",
+      "unblocks": [
+        "I1"
+      ],
+      "options": [
+        {
+          "value": "named",
+          "label": "I'll name the app in the note below",
+          "desc": "Write the app name and who owns it."
+        },
+        {
+          "value": "later",
+          "label": "Decide later",
+          "desc": "Phases A to H don't need it."
+        }
+      ],
+      "noteRequired": true
+    }
+  ],
+  "phases": [
+    {
+      "id": "A",
+      "title": "Phase A: Staging spike",
+      "needs": [
+        "Q1"
+      ],
+      "intro": "Prove the real endpoint before building more on assumptions.",
+      "steps": [
+        {
+          "id": "A1",
+          "status": "blocked",
+          "title": "Store the staging details safely",
+          "body": "Add SFERE_MOBILE_STAGING_HOST and SFERE_MOBILE_STAGING_WRITE_KEY to the project .env. Before writing, confirm it is git-ignored with git check-ignore, then chmod 600. Commit a .env.example with empty values. Never print the key.",
+          "done": "git check-ignore .env succeeds and .env.example is committed.",
+          "result": "Waiting for Q1 (staging host and key)."
+        },
+        {
+          "id": "A2",
+          "status": "blocked",
+          "title": "Staging smoke from both SDKs",
+          "body": "A test target per platform that is skipped unless the staging variables are set. It sends one of each v1 event with the browser key and asserts the response (okEvents == receivedEvents). Run iOS, then Android.",
+          "done": "Both pass against staging, and the raw responses are saved to the scratchpad.",
+          "result": "Waiting for Q1."
+        },
+        {
+          "id": "A3",
+          "status": "blocked",
+          "title": "Gzip check",
+          "body": "Send the same batch once uncompressed and once with Content-Encoding: gzip (an Android debug flag). If gzip is accepted, decide with the user whether Android turns it on (iOS sends uncompressed today).",
+          "done": "The result is recorded in CLAUDE.md under 'Rules the code follows'.",
+          "result": "Waiting for Q1."
+        },
+        {
+          "id": "A4",
+          "status": "blocked",
+          "title": "Network capture: only {host}",
+          "body": "A 10-minute run of the sample app (phase C) through mitmproxy or Proxyman. If phase C isn't done yet, use the staging smoke test.",
+          "done": "Every captured request goes to {host}/v1/batch/b.",
+          "result": "Waiting for Q1."
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "title": "Phase B: Payload trimming",
+      "needs": [
+        "Q2"
+      ],
+      "intro": "Apply decision Q2 the same way on both platforms.",
+      "steps": [
+        {
+          "id": "B1",
+          "status": "done",
+          "title": "Strip the context keys marked 'drop'",
+          "body": "Extend SfereSanitizerPlugin (iOS) and WireSanitizer (Android) with the same list, add a unit test on each platform, and rerun the parity task.",
+          "done": "Both suites pass and the parity task reports every event as 'same'.",
+          "result": "2026-10-15, no code change. Q2 keeps all eight context keys, and neither WireSanitizer.kt nor SferePlugins.swift strips any of them."
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "title": "Phase C: Sample apps",
+      "needs": [],
+      "intro": "A small app per platform that calls every v1 event, used for manual checks and UI tests.",
+      "steps": [
+        {
+          "id": "C1",
+          "status": "done",
+          "title": "iOS sample app (SwiftUI)",
+          "body": "ios/Example with buttons for every event in the plan's §5 (minus push), settings (host, key, session timeout, consent switches), a live list of sent payloads, and the deep-link scheme sfereexample://. The Xcode project is generated with XcodeGen (brew install xcodegen; ask before installing). The app reads the SDK from the local package. A debug-only ATS exception (NSAllowsLocalNetworking) lets it reach the local mock.",
+          "done": "It builds for the Simulator with xcodebuild. No simulator is booted in this step.",
+          "result": "2026-10-15, commit f5eca6b. ios/Example: SwiftUI app from XcodeGen's project.yml (the generated .xcodeproj is git-ignored). It builds for the Simulator with the task 'iOS: build sample app'. Default host http://127.0.0.1:4320. Not run on a simulator yet (phase D)."
+        },
+        {
+          "id": "C2",
+          "status": "done",
+          "title": "Android sample app",
+          "body": "android/sample module with the same screens, depending on :sfere-analytics, with an intent-filter for sfereexample:// and a debug-only network_security_config allowing cleartext to 10.0.2.2.",
+          "done": "./gradlew :sample:assembleDebug succeeds, with daemons stopped afterwards.",
+          "result": "2026-10-15, commit f5eca6b. android/sample: plain Android views, no UI libraries. ':sample:assembleDebug' builds a 2.3 MB APK. Default host http://10.0.2.2:4320. Not run on an emulator yet (phase D)."
+        },
+        {
+          "id": "C3",
+          "status": "done",
+          "title": "Standalone mock ingestion server",
+          "body": "Run the JS repo's mock-ingest.mjs standalone, or write a small copy in tools/ (Node, no dependencies), serving /v1/batch/b, /__events and /__reset, plus fault injection (/__fail with status and count). Add a VS Code task to start and stop it, safe to run twice.",
+          "done": "curl to /__events shows events sent by a sample app.",
+          "result": "2026-10-15, commit f5eca6b. tools/mock_ingest.mjs with tools/mock_ingest_ctl.sh start|stop|status (port 4320, or SFERE_MOCK_PORT), plus VS Code tasks. Tested with curl on a scratch port: batch, Basic auth, /__fail 503 with Retry-After, gzip body, /__reset, a second start reuses the server, and stop refuses a process that isn't the mock. Events from a sample app are checked in phase D."
+        }
+      ]
+    },
+    {
+      "id": "D",
+      "title": "Phase D: Simulator and emulator flows",
+      "needs": [
+        "Q4"
+      ],
+      "intro": "The first time the SDKs run inside real apps. Heavy: one platform at a time, memory checked first.",
+      "steps": [
+        {
+          "id": "D1",
+          "status": "todo",
+          "title": "Android emulator setup (ask first)",
+          "body": "The machine has the emulator binary and an AVD (Pixel_3a_API_33_arm64-v8a), but no cmdline-tools and an empty system-images folder (checked 2026-10-15). Ask before downloading: cmdline-tools plus an arm64 system image (about 1.5 GB) and one AVD. Measure memory first, because an emulator uses about 2 to 4 GB.",
+          "done": "The AVD boots headless and adb sees it. Shut it down afterwards."
+        },
+        {
+          "id": "D2",
+          "status": "done",
+          "title": "iOS flows on one simulator",
+          "body": "Fresh install (app_installed then app_opened), upgrade (app_updated), a deep link through xcrun simctl openurl, offline queue (200 events, then reconnect), kill and relaunch, session rotation with a 1-minute timeout, consent change, reset, opt-out, and server errors (503 and 429 retried, 400 dropped). Use the tool chosen in Q4. Also run the parity scenario on device and compare platform context.",
+          "done": "Every flow passes, and the simulator is shut down afterwards. The sample app's events appear in the mock's /__events (C3's last check).",
+          "result": "2026-10-15, commit f8e58b2. tools/ios_flows.py (task 'iOS: simulator flows') on a dedicated simulator 'Sfere Flows iPhone 16' (iOS 18.5): fresh install (app_installed, app_opened, session_started; no device.id) and upgrade (app_updated 0.1.0 → 0.1.1) pass with simctl; 8 XCUITest flows pass: cold and warm deep links, consent, identify and reset, opt-out across launches, 503 and 429 retried, 400 dropped, 200 events queued offline survive a kill and arrive once each, session rotation after a 1-minute timeout. Found and fixed an iOS SDK bug on the way: the local settings answer was dropped (weak capture), so a real app never left the paused state and sent nothing; new test ConfigurationTests.testSettingsAnswerArrivesWhenNobodyKeepsTheTask. Events queued during startup go out on the flush interval, not on flushAt. The iOS platform context is captured; comparing it with Android waits for D3."
+        },
+        {
+          "id": "D3",
+          "status": "todo",
+          "title": "Android flows on one emulator",
+          "body": "The same flows (deep link through adb shell am start). This is the first run of Sfere.setup(context), the SharedPreferences store and the Android lifecycle and context plugins. Rerun the parity diff, this time including platform context.",
+          "done": "Every flow passes, the parity diff including context is clean apart from approved platform differences, and the emulator and daemons are stopped. The sample app's events appear in the mock's /__events (C3's last check)."
+        }
+      ]
+    },
+    {
+      "id": "E",
+      "title": "Phase E: Remaining v1 features",
+      "needs": [
+        "Q5",
+        "Q6"
+      ],
+      "intro": "Small features the plan lists for v1.",
+      "steps": [
+        {
+          "id": "E1",
+          "status": "todo",
+          "title": "Debug validation warnings",
+          "body": "Both SDKs warn in debug mode about: event names longer than 128 characters, names that aren't snake_case, a value that isn't numeric, a value without currency, items without item_id or item_name, arrays longer than 100, and strings longer than 512 characters. Nothing is dropped silently. Add tests on both platforms.",
+          "done": "Both suites pass and the warnings show in the sample apps' logs."
+        },
+        {
+          "id": "E2",
+          "status": "todo",
+          "title": "Play Install Referrer (if Q6 = yes)",
+          "body": "Read it once with com.android.installreferrer and parse it with ClickIds, using the fixture case that already exists. Attach it to app_installed and keep it for the first session.",
+          "done": "A unit test covers the referrer string, and a manual check on the emulator passes."
+        },
+        {
+          "id": "E3",
+          "status": "todo",
+          "title": "Advertising IDs (if Q5 = v1-off)",
+          "body": "collectAdvertisingId config. IDFA only after ATT is authorised (the app shows the prompt), GAID only with advertising consent and no limit-ad-tracking, and never zeros. On Android the AD_ID permission goes in an optional module. Update the privacy manifest and the Data safety notes.",
+          "done": "Tests for every ATT and consent state pass on both platforms."
+        }
+      ]
+    },
+    {
+      "id": "F",
+      "title": "Phase F: CI",
+      "needs": [
+        "Q3",
+        "Q7"
+      ],
+      "intro": "Same gate idea as the JS repo.",
+      "steps": [
+        {
+          "id": "F1",
+          "status": "todo",
+          "title": "GitHub Actions workflows",
+          "body": "ios job (macOS runner: swift test, simulator build), android job (Ubuntu: Gradle test and AAR), parity job (both tests, then tools/parity_diff.py). Add simulator and emulator jobs according to Q7, and protect main.",
+          "done": "A PR shows all checks green."
+        }
+      ]
+    },
+    {
+      "id": "G",
+      "title": "Phase G: Beta publishing",
+      "needs": [
+        "Q3"
+      ],
+      "intro": "Private distribution for the beta, as decided on 2026-10-13.",
+      "steps": [
+        {
+          "id": "G1",
+          "status": "todo",
+          "title": "Versioning and release flow",
+          "body": "Version 0.1.0-beta.1 in one place per platform, generated into context.library.version, and a CHANGELOG. iOS: a git tag is the release (SPM). Android: maven-publish to GitHub Packages. After publishing, download the AAR again and verify it before tagging, as the JS release does.",
+          "done": "A blank test app installs both from the private sources, following only the READMEs."
+        },
+        {
+          "id": "G2",
+          "status": "todo",
+          "title": "Remove 'Not yet published' from the READMEs",
+          "body": "Only after G1 works end to end.",
+          "done": "The README install steps were followed by someone who didn't build the SDK."
+        }
+      ]
+    },
+    {
+      "id": "H",
+      "title": "Phase H: Contract docs",
+      "needs": [
+        "Q8"
+      ],
+      "intro": "Keep the shared contract the source of truth.",
+      "steps": [
+        {
+          "id": "H1",
+          "status": "todo",
+          "title": "Update WIRE-CONTRACT.md and EVENTS.md",
+          "body": "Mobile column from 'planned' to 'live' with dates, a 'Mobile app events' section (app_installed, app_opened, app_updated, app_backgrounded, deep_link_opened, session_started), and the shared fixtures moved into the JS repo so the browser SDK tests against them too. Done the way Q8 chooses.",
+          "done": "Merged, or handed to the user."
+        }
+      ]
+    },
+    {
+      "id": "I",
+      "title": "Phase I: Pilot and 1.0.0",
+      "needs": [
+        "Q9"
+      ],
+      "intro": "The release gates from the original plan.",
+      "steps": [
+        {
+          "id": "I1",
+          "status": "todo",
+          "title": "Beta in the pilot app",
+          "body": "Integrate into the app named in Q9, on TestFlight and Play internal testing, for 1 to 2 weeks. Compare daily opens, screens and purchases with the app's existing analytics (within ±5%), and check for crashes with an SDK frame.",
+          "done": "Every gate in the plan's §9 is ticked, then tag 1.0.0 and move to public distribution."
+        }
+      ]
+    }
+  ]
+}
+</script>
+
+<script>
+(function () {
+  var DATA = JSON.parse(document.getElementById("plan-data").textContent);
+  var STORE = "sfere-next-steps-decisions";
+  var THEME = "sfere-next-steps-theme";
+
+  function read(key, fallback) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; } }
+  function write(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* storage blocked */ } }
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === "text") node.textContent = attrs[k];
+      else if (k === "className") node.className = attrs[k];
+      else node.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+    return node;
+  }
+
+  var theme = read(THEME, null);
+  if (theme) document.documentElement.setAttribute("data-theme", theme);
+  document.getElementById("theme-toggle").addEventListener("click", function () {
+    var current = document.documentElement.getAttribute("data-theme") ||
+      (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var next = current === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    write(THEME, next);
+  });
+
+  var answers = read(STORE, {});
+
+  function isAnswered(d) {
+    var a = answers[d.id];
+    if (!a) return false;
+    if (d.multi) return Array.isArray(a.values);
+    return !!a.value && (!d.noteRequired || a.value !== "named" || !!(a.note || "").trim());
+  }
+
+  function renderDecisions() {
+    var list = document.getElementById("decision-list");
+    list.innerHTML = "";
+    DATA.decisions.forEach(function (d) {
+      var a = answers[d.id] || {};
+      var card = el("section", { className: "decision" + (isAnswered(d) ? " answered" : ""), id: "decision-" + d.id });
+      card.appendChild(el("div", { className: "decision-head" }, [
+        el("h3", { text: d.id + ". " + d.title }),
+        el("span", { className: "state", text: isAnswered(d) ? "answered" : "open" })
+      ]));
+      card.appendChild(el("p", { className: "why", text: d.why + " Unblocks: " + d.unblocks.join(", ") + "." }));
+      if (d.note) card.appendChild(el("p", { className: "why", text: d.note }));
+      d.options.forEach(function (o, index) {
+        var input;
+        if (d.multi) {
+          var checked = Array.isArray(a.values) ? a.values.indexOf(o.value) >= 0 : !!o.default;
+          input = el("input", { type: "checkbox", name: d.id, value: o.value });
+          input.checked = checked;
+        } else {
+          input = el("input", { type: "radio", name: d.id, value: o.value });
+          input.checked = a.value === o.value;
+        }
+        input.addEventListener("change", function () {
+          var entry = answers[d.id] || {};
+          if (d.multi) {
+            entry.values = Array.prototype.slice.call(card.querySelectorAll("input[type=checkbox]:checked")).map(function (i) { return i.value; });
+          } else {
+            entry.value = o.value;
+          }
+          answers[d.id] = entry;
+          write(STORE, answers);
+          refresh(card, d);
+        });
+        var labelNode = el("span", { className: "label", text: o.label });
+        if (!d.multi && index === 0) labelNode.appendChild(el("span", { className: "rec", text: "Recommended" }));
+        card.appendChild(el("label", { className: "option" }, [input, el("span", {}, [labelNode, el("div", { className: "desc", text: o.desc })])]));
+      });
+      var note = el("textarea", { placeholder: d.noteRequired ? "Required for 'named': app name and owner" : "Optional note for Claude", "aria-label": d.id + " note" });
+      note.value = a.note || "";
+      note.addEventListener("input", function () {
+        var entry = answers[d.id] || {};
+        entry.note = note.value;
+        if (d.multi && !Array.isArray(entry.values)) {
+          entry.values = Array.prototype.slice.call(card.querySelectorAll("input[type=checkbox]:checked")).map(function (i) { return i.value; });
+        }
+        answers[d.id] = entry;
+        write(STORE, answers);
+        refresh(card, d);
+      });
+      card.appendChild(note);
+      list.appendChild(card);
+    });
+    updateCount();
+  }
+
+  function refresh(card, d) {
+    card.classList.toggle("answered", isAnswered(d));
+    card.querySelector(".state").textContent = isAnswered(d) ? "answered" : "open";
+    updateCount();
+  }
+
+  function updateCount() {
+    var n = DATA.decisions.filter(isAnswered).length;
+    document.getElementById("answered-count").textContent = n + " of " + DATA.decisions.length + " decisions answered";
+  }
+
+  function exportText() {
+    var lines = ["# Sfere mobile SDKs: decisions (" + new Date().toISOString().slice(0, 10) + ")", ""];
+    DATA.decisions.forEach(function (d) {
+      var a = answers[d.id] || {};
+      var choice;
+      if (d.multi) {
+        var values = Array.isArray(a.values) ? a.values : d.options.filter(function (o) { return o.default; }).map(function (o) { return o.value; });
+        var dropped = d.options.filter(function (o) { return values.indexOf(o.value) < 0; }).map(function (o) { return o.value; });
+        choice = "keep: " + (values.join(", ") || "none") + "; drop: " + (dropped.join(", ") || "none") + (Array.isArray(a.values) ? "" : " (defaults, not reviewed)");
+      } else {
+        var picked = d.options.filter(function (o) { return o.value === a.value; })[0];
+        choice = picked ? picked.value + " (" + picked.label + ")" : "OPEN";
+      }
+      lines.push("- " + d.id + " " + d.title + ": " + choice + ((a.note || "").trim() ? "\n  note: " + a.note.trim().replace(/\n/g, " ") : ""));
+    });
+    lines.push("", "Claude: record these in #decision-record of sfere-mobile-sdks-next-steps.html, then continue with section 4.");
+    return lines.join("\n");
+  }
+
+  document.getElementById("copy-decisions").addEventListener("click", function (event) {
+    var text = exportText();
+    var button = event.currentTarget;
+    function fallback() {
+      var area = document.getElementById("export-fallback");
+      area.style.display = "block";
+      area.value = text;
+      area.focus();
+      area.select();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        button.textContent = "Copied";
+        setTimeout(function () { button.textContent = "Copy decisions"; }, 1500);
+      }, fallback);
+    } else {
+      fallback();
+    }
+  });
+
+  document.getElementById("download-decisions").addEventListener("click", function () {
+    var blob = new Blob([exportText() + "\n"], { type: "text/markdown" });
+    var link = el("a", { href: URL.createObjectURL(blob), download: "sfere-mobile-sdks-decisions.md" });
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(function () { URL.revokeObjectURL(link.href); link.remove(); }, 0);
+  });
+
+  document.getElementById("clear-decisions").addEventListener("click", function () {
+    answers = {};
+    write(STORE, answers);
+    document.getElementById("export-fallback").style.display = "none";
+    renderDecisions();
+  });
+
+  function renderPhases() {
+    var decisionTitles = {};
+    DATA.decisions.forEach(function (d) { decisionTitles[d.id] = d.title; });
+    var list = document.getElementById("phase-list");
+    DATA.phases.forEach(function (p) {
+      var section = el("section", { className: "phase", id: "phase-" + p.id });
+      var needs = el("span", { className: "needs" });
+      if (p.needs.length) {
+        needs.appendChild(document.createTextNode("Needs "));
+        p.needs.forEach(function (id, i) {
+          var link = el("a", { href: "#decision-" + id, text: id, title: decisionTitles[id] || "" });
+          needs.appendChild(link);
+          if (i < p.needs.length - 1) needs.appendChild(document.createTextNode(", "));
+        });
+      } else {
+        needs.appendChild(el("span", { text: "No decision needed" }));
+      }
+      section.appendChild(el("div", { className: "phase-head" }, [el("h3", { text: p.title }), needs]));
+      section.appendChild(el("p", { text: p.intro }));
+      var ol = el("ol", { className: "steps" });
+      p.steps.forEach(function (s) {
+        var title = el("div", {}, [
+          el("span", { className: "sid", text: s.id }),
+          el("span", { className: "stitle", text: s.title }),
+          el("span", { className: "status " + s.status, text: s.status })
+        ]);
+        ol.appendChild(el("li", { id: "step-" + s.id }, [title, el("div", { className: "sbody", text: s.body }), el("div", { className: "done-when", text: s.done }), s.result ? el("div", { className: "result " + s.status, text: s.result }) : null]));
+      });
+      section.appendChild(ol);
+      list.appendChild(section);
+    });
+  }
+
+  var record = document.getElementById("decision-record").textContent.trim();
+  document.getElementById("decision-record-view").textContent = record;
+
+  renderDecisions();
+  renderPhases();
+})();
+</script>
+</body>
+</html>
