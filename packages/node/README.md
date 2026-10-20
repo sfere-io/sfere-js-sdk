@@ -115,3 +115,7 @@ SFERE_WRITE_KEY=… SFERE_HOST=https://… npm run smoke:staging -w @sfere-io/sf
 ## Third-party software
 
 This SDK depends on [@segment/analytics-node](https://github.com/segmentio/analytics-next/tree/master/packages/node) (MIT license). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).

@@ -192,6 +192,10 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for branch naming, commit standards
 
 This SDK uses [@segment/analytics-next](https://github.com/segmentio/analytics-next) (MIT license). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for full attribution.
 
+## License
+
+MIT. See [LICENSE](LICENSE).
+
 ## More
 
 - [Integration guide](../../docs/INTEGRATION.md) — CSP, SPA page views and React bindings, consent, deduplication, troubleshooting

@@ -46,6 +46,7 @@ for (const file of ["dist/index.js", "dist/index.cjs"]) {
   const code = readFileSync(file, "utf8");
   check(
     code.startsWith(`/*! Sfere Node SDK v${pkg.version}`) &&
+      code.slice(0, 400).includes("MIT License") &&
       code.slice(0, 400).includes("@segment/analytics-node"),
     `${file} starts with the Sfere license banner`,
   );

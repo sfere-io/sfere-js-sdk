@@ -26,3 +26,7 @@ Releases use Changesets: add one with `npx changeset` on your branch. See [RELEA
 
 - [Contributing](CONTRIBUTING.md)
 - [Security](SECURITY.md)
+
+## License
+
+MIT. See [LICENSE](LICENSE).
