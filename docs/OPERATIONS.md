@@ -6,12 +6,12 @@ _Internal maintainer runbook. Last verified 2026-09-28. Start here if you are ta
 
 | Thing | Where | State |
 |---|---|---|
-| npm package | `@fanfinity/sfere-sdk` on GitHub Packages (private, follows repo access) | **0.1.0** published |
+| npm package | `@sfere-io/sfere-sdk` on GitHub Packages (visibility follows the repo) | **0.1.0** published |
 | Git tag + GitHub release | `v0.1.0`, with `sfere.min.js`, `sfere.js` and `manifest.json` attached | done |
 | CDN, immutable | `https://cdn.sfere.io/sdk/v0.1.0/sfere.min.js` | live, `Cache-Control: public, max-age=31536000, immutable` |
 | CDN, alias | `https://cdn.sfere.io/sdk/v0.1/sfere.min.js` | live, `Cache-Control: public, max-age=300, stale-while-revalidate=86400` |
 | CDN, latest | `https://cdn.sfere.io/sdk/latest/sfere.min.js` | newest stable release across all lines; for embeds nobody can edit. Same caching as an alias ([CDN-POLICY.md](CDN-POLICY.md#the-latest-channel-embeds-you-can-never-edit)) |
-| SonarQube Cloud | project `fanfinity_sfere-sdk` (org `fanfinity`) | quality gate passing on `main` |
+| SonarQube Cloud | project `fanfinity_sfere-sdk` (org `sfere-io`) | quality gate passing on `main` |
 
 **Verified end to end on 2026-09-28:**
 - A page loaded the SDK from `cdn.sfere.io`, and the staging ingestion endpoint (`console.fanfinity.io`) answered `{"ok":true}` for page, identify and track.
@@ -25,16 +25,16 @@ Production ingestion (`console.sfere.io`) has **not** received SDK traffic yet. 
 1. **Change code:** branch, then open a PR. CI runs typecheck, lint, unit tests, e2e, size, verify and Sonar.
 2. **Anything user-facing needs a changeset:** `npm run changeset` (patch / minor / major plus a one-line summary).
 3. **Merge to `main`:** `release.yml` opens or updates the **"chore: version packages"** PR.
-4. **Merge that PR to ship.** This one merge publishes to GitHub Packages, tags `vX.Y.Z`, creates the GitHub release and deploys the CDN. Details: [RELEASING.md](RELEASING.md).
+4. **Merge that PR to ship.** This one merge publishes to GitHub Packages, tags each package, creates the Browser, React and Node GitHub releases for what shipped, and deploys the CDN. Details: [RELEASING.md](RELEASING.md).
 
 ### Manual CDN deploy or rollback
 
 ```sh
 # re-deploy a released version (the input is the bare version: 0.1.0, not v0.1.0)
-gh workflow run cdn-deploy.yml -R fanfinity/sfere-sdk --ref main -f version=0.1.0
+gh workflow run cdn-deploy.yml -R sfere-io/sfere-sdk --ref main -f version=0.1.0
 
 # roll the alias back to a known-good version (never touches immutable files)
-gh workflow run cdn-deploy.yml -R fanfinity/sfere-sdk --ref main -f version=0.1.0 -f alias_only=true
+gh workflow run cdn-deploy.yml -R sfere-io/sfere-sdk --ref main -f version=0.1.0 -f alias_only=true
 ```
 
 A full deploy of an already-deployed version fails by design: immutable files are write-once. Use `alias_only=true` for rollbacks.
@@ -42,7 +42,7 @@ A full deploy of an already-deployed version fails by design: immutable files ar
 `/sdk/latest/` follows on its own: forward on every newer stable release, and back on a rollback while it is on that line. To roll it back across lines (a bad new minor or major), add `-f force_latest=true`:
 
 ```sh
-gh workflow run cdn-deploy.yml -R fanfinity/sfere-sdk --ref main -f version=0.3.2 -f alias_only=true -f force_latest=true
+gh workflow run cdn-deploy.yml -R sfere-io/sfere-sdk --ref main -f version=0.3.2 -f alias_only=true -f force_latest=true
 ```
 
 ### Before the second release of a new minor line (0.2.x, 0.3.x, …)
@@ -67,7 +67,7 @@ If you skip this, the second deploy on that line fails with a 403 on the alias u
 | DNS | `A cdn.sfere.io → 136.69.38.89`, TTL 300, in Cloud DNS zone `sfereio` |
 | Deploy service account | `sfere-sdk-cdn-deploy@koratona-9791a.iam.gserviceaccount.com` |
 | Custom roles | `sfereSdkCdnPublicReader` (public GET, no listing), `sfereSdkCdnAliasOverwriter` (delete, alias folders only) |
-| GitHub → GCP sign-in | WIF pool `github-pool` / provider `github-provider`. The provider only accepts repos owned by `fanfinity` (tightened 2026-09-28) |
+| GitHub → GCP sign-in | WIF pool `github-pool` / provider `github-provider`. The provider only accepts repos owned by the Sfere org, keyed on the org's numeric id (`repository_owner_id == 194491647`), and the SA is bound to this repo's numeric id, so renaming the org or repo does not break the sign-in |
 
 - **Cost:** the load balancer forwarding rule and Cloud CDN bill monthly even with no traffic.
 - **HTTPS only:** port 80 is not served.

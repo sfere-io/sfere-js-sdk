@@ -9,12 +9,12 @@ import {
   type ReactNode,
 } from "react";
 // The package's own name, not "./index": the build keeps it external, so an app that imports both
-// "@fanfinity/sfere-sdk" and "@fanfinity/sfere-sdk/react" shares one SDK module and one instance.
+// "@sfere-io/sfere-sdk" and "@sfere-io/sfere-sdk/react" shares one SDK module and one instance.
 import {
   SfereAnalytics,
   type SfereAnalyticsInstance,
   type SfereLoadOptions,
-} from "@fanfinity/sfere-sdk";
+} from "@sfere-io/sfere-sdk";
 
 export type { SfereAnalyticsInstance, SfereLoadOptions };
 

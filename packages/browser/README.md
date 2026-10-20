@@ -2,7 +2,7 @@
 
 Collect first-party fan engagement events in real time. The Sfere SDK enriches every event with ad platform click IDs and identifiers from your site, then sends them to the Sfere ingestion endpoint for activation across sponsorship and monetization channels.
 
-> **Status:** 0.1.0 is live — `https://cdn.sfere.io/sdk/v0.1/sfere.min.js` and `@fanfinity/sfere-sdk@0.1.0` on GitHub Packages. Maintainers: start with [docs/OPERATIONS.md](../../docs/OPERATIONS.md).
+> **Status:** 0.1.0 is live — `https://cdn.sfere.io/sdk/v0.1/sfere.min.js` and `@sfere-io/sfere-sdk@0.1.0` on GitHub Packages. Maintainers: start with [docs/OPERATIONS.md](../../docs/OPERATIONS.md).
 
 ## Quick start
 
@@ -52,20 +52,20 @@ The snippet already sends the first `page()`; call `sfere.page()` yourself only 
 ### npm
 
 ```bash
-npm install @fanfinity/sfere-sdk
+npm install @sfere-io/sfere-sdk
 ```
 
 The package is on GitHub Packages. Create a token with the `read:packages` scope, then add to your `.npmrc`:
 
 ```
-@fanfinity:registry=https://npm.pkg.github.com
+@sfere-io:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=<YOUR_TOKEN>
 ```
 
 Initialize the SDK:
 
 ```javascript
-import { SfereAnalytics } from "@fanfinity/sfere-sdk";
+import { SfereAnalytics } from "@sfere-io/sfere-sdk";
 
 const sfere = SfereAnalytics.load({
   writeKey: "keyId:secret",
@@ -86,7 +86,7 @@ sfere.track("add_to_cart", {
 ### React and Next.js
 
 ```tsx
-import { SfereProvider, usePageTracking, useSfere } from "@fanfinity/sfere-sdk/react";
+import { SfereProvider, usePageTracking, useSfere } from "@sfere-io/sfere-sdk/react";
 
 <SfereProvider writeKey="keyId:secret" host="https://ingest.example.com">
   <App />
@@ -129,7 +129,7 @@ Script-tag attributes: `data-write-key`, `data-host`, and optionally `data-batch
 | `context.traits` | The visitor's identify traits, copied onto every later event so server-side destinations can match on email and phone. Turn off with `carryTraits: false` | `{ "email": "fan@example.com", "phone": "+966500000000" }` |
 | `context.consent` | Categories from the `consent` option or `setConsent()`; omitted when unset | `{ "categoryPreferences": { "advertising": true } }` |
 | `context.page.lang` | `<html lang>` when set | `"ar"` |
-| `context.library` | This SDK, with the underlying library under `base` | `{ "name": "@fanfinity/sfere-sdk", "version": "0.1.0", "base": "analytics-next@1.84.3" }` |
+| `context.library` | This SDK, with the underlying library under `base` | `{ "name": "@sfere-io/sfere-sdk", "version": "0.1.0", "base": "analytics-next@1.84.3" }` |
 | `properties.sfere_dedup_id` | On `track` only: kept if your site set it, otherwise the event's `messageId`. Server-side destinations dedupe on `messageId`, so give browser pixels the `messageId` ([Deduplication](../../docs/INTEGRATION.md#deduplication)) | `"ajs-next-1727500000000-…"` |
 
 A landing `fbclid` becomes `context.clientIds.fbc` in Meta's `fb.1.<ms>.<fbclid>` format. The wire payload carries no `_metadata`, and no `integrations` unless you set some on the call.

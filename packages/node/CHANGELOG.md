@@ -1,4 +1,4 @@
-# @fanfinity/sfere-node
+# @sfere-io/sfere-node
 
 ## 0.1.1
 

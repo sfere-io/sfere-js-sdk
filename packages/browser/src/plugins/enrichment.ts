@@ -6,7 +6,7 @@ import {
   clientIdsFromCookies,
   fbcFromFbclid,
   fbcTime,
-} from "@fanfinity/sfere-shared";
+} from "@sfere-io/sfere-shared";
 import { baseLibrary, libraryName, version } from "../version";
 
 export type ConsentPreferences = Record<string, boolean>;

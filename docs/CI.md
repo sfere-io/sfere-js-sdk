@@ -65,7 +65,7 @@ What the suite covers, beyond the per-feature specs:
     - the end-user IP, user agent, locale, page, campaign and click IDs (including `fbclid` → `fbc`);
     - the dedup id.
   - A TypeScript consumer is type-checked under `node16` and `bundler` resolution.
-- **Node SDK against staging** (`npm run smoke:staging -w @fanfinity/sfere-node`, manual, needs `SFERE_WRITE_KEY` and `SFERE_HOST`): sends a tagged identify and purchase through the built SDK and requires `okEvents: 2`.
+- **Node SDK against staging** (`npm run smoke:staging -w @sfere-io/sfere-node`, manual, needs `SFERE_WRITE_KEY` and `SFERE_HOST`): sends a tagged identify and purchase through the built SDK and requires `okEvents: 2`.
 
 Because `release.yml` calls this workflow before publishing, a red e2e run blocks the npm publish, the tag and the CDN deploy.
 

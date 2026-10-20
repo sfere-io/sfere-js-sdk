@@ -2,7 +2,7 @@ declare const __SFERE_VERSION__: string | undefined;
 declare const __SFERE_BASE_VERSION__: string | undefined;
 
 /** Package name, reported in `context.library.name`. */
-export const libraryName = "@fanfinity/sfere-node";
+export const libraryName = "@sfere-io/sfere-node";
 
 /** Package version, injected at build time by tsup (`define`). */
 export const version: string =

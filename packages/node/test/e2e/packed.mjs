@@ -15,7 +15,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pkgDir = resolve(here, "..", "..");
 const tmp = resolve(here, ".tmp");
 const consumer = resolve(tmp, "consumer");
-const installed = resolve(consumer, "node_modules", "@fanfinity", "sfere-node");
+const installed = resolve(consumer, "node_modules", "@sfere-io", "sfere-node");
 
 rmSync(tmp, { recursive: true, force: true });
 mkdirSync(installed, { recursive: true });
@@ -65,11 +65,11 @@ server.listen(port, "127.0.0.1", () => process.send?.("ready"));
 `;
 writeFileSync(
   resolve(consumer, "app.mjs"),
-  app('import { createServer } from "node:http";\nimport { SfereAnalytics, requestContext } from "@fanfinity/sfere-node";'),
+  app('import { createServer } from "node:http";\nimport { SfereAnalytics, requestContext } from "@sfere-io/sfere-node";'),
 );
 writeFileSync(
   resolve(consumer, "app.cjs"),
-  app('const { createServer } = require("node:http");\nconst { SfereAnalytics, requestContext } = require("@fanfinity/sfere-node");'),
+  app('const { createServer } = require("node:http");\nconst { SfereAnalytics, requestContext } = require("@sfere-io/sfere-node");'),
 );
 
 async function runApp(file) {
@@ -124,14 +124,14 @@ function assertDelivery(label, received) {
       `Basic ${Buffer.from("e2eKey:e2eSecret:").toString("base64")}`,
       `${label}: Basic auth with the write key`,
     );
-    assert.equal(request.headers["user-agent"], `@fanfinity/sfere-node/${version}`);
+    assert.equal(request.headers["user-agent"], `@sfere-io/sfere-node/${version}`);
   }
   const events = received.flatMap((r) => r.body.batch);
   assert.deepEqual(events.map((e) => e.type), ["identify", "track", "track"], `${label}: call order kept`);
   for (const event of events) {
     assert.ok(!("_metadata" in event) && !("integrations" in event), `${label}: no _metadata/integrations`);
     assert.deepEqual(Object.keys(event.context.library).sort(), ["base", "name", "version"]);
-    assert.equal(event.context.library.name, "@fanfinity/sfere-node");
+    assert.equal(event.context.library.name, "@sfere-io/sfere-node");
     assert.equal(event.context.library.version, version);
   }
   const [identify, purchase, refund] = events;
@@ -162,7 +162,7 @@ assertDelivery("CommonJS app", await runApp("app.cjs"));
 // Types, as a TypeScript user sees them: the helper's result goes straight into track().
 writeFileSync(
   resolve(consumer, "consumer.ts"),
-  `import { SfereAnalytics, requestContext, type SfereNodeOptions } from "@fanfinity/sfere-node";
+  `import { SfereAnalytics, requestContext, type SfereNodeOptions } from "@sfere-io/sfere-node";
 import type { IncomingMessage } from "node:http";
 const options: SfereNodeOptions = { writeKey: "k:s", host: "https://ingest.example.com" };
 const sfere = new SfereAnalytics(options);

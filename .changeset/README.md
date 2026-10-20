@@ -1,6 +1,6 @@
 # Changesets
 
-This directory manages versioning and changelogs for `@fanfinity/sfere-sdk`
+This directory manages versioning and changelogs for `@sfere-io/sfere-sdk`
 with [Changesets](https://github.com/changesets/changesets). See
 `../docs/RELEASING.md` for the full release flow; the short version:
 
@@ -21,8 +21,9 @@ with [Changesets](https://github.com/changesets/changesets). See
 3. Once merged, the `release` workflow opens or updates a "Version
    Packages" PR (via `changesets/action`) that bumps `package.json` and
    compiles `CHANGELOG.md` from every pending changeset. Merging that PR
-   is what actually publishes: to GitHub Packages, plus a git tag,
-   GitHub release and CDN deploy. Nothing publishes from a normal PR
+   is what actually publishes: to GitHub Packages, plus git tags,
+   one GitHub release per framework (Browser, React, Node) and the CDN
+   deploy. Nothing publishes from a normal PR
    merge.
 
 The changelog generator is the built-in `@changesets/cli/changelog` (plain

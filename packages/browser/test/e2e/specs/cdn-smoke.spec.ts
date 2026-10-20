@@ -80,7 +80,7 @@ test("live CDN bundle loads with SRI and delivers events", async ({ page, reques
   expect(event?.keySource).toBe("basic");
   expect(event?.writeKey).toBe(WRITE_KEY);
   const library = asRecord(asRecord(asRecord(event?.body).context).library);
-  expect(library.name).toBe("@fanfinity/sfere-sdk");
+  expect(library.name).toBe("@sfere-io/sfere-sdk");
   if (expectedVersion) expect(library.version).toBe(expectedVersion);
 
   expect(offHost).toEqual([]);

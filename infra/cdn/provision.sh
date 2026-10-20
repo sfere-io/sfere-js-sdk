@@ -47,7 +47,7 @@ WIF_POOL="${WIF_POOL:-github-pool}"
 WIF_PROVIDER="${WIF_PROVIDER:-github-provider}"
 DEPLOY_SA_ID="${DEPLOY_SA_ID:-sfere-sdk-cdn-deploy}"
 DEPLOY_SA="${DEPLOY_SA_ID}@${PROJECT}.iam.gserviceaccount.com"
-GITHUB_REPO="${GITHUB_REPO:-fanfinity/sfere-sdk}"
+GITHUB_REPO="${GITHUB_REPO:-sfere-io/sfere-sdk}"
 
 CUSTOM_ROLE_ID="${CUSTOM_ROLE_ID:-sfereSdkCdnPublicReader}"
 ALIAS_ROLE_ID="${ALIAS_ROLE_ID:-sfereSdkCdnAliasOverwriter}"
@@ -393,7 +393,7 @@ else
   echo "The Google-managed certificate for ${DOMAIN} only issues once that A"
   echo "record resolves; until then the LB serves a default/self-signed cert."
   echo
-  echo "Repository variables to set on fanfinity/sfere-sdk (Settings > Secrets"
+  echo "Repository variables to set on sfere-io/sfere-sdk (Settings > Secrets"
   echo "and variables > Actions > Variables), and on the cdn-production"
   echo "Environment's required reviewer list:"
   echo "  WIF_PROVIDER   = projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WIF_POOL}/providers/${WIF_PROVIDER}"

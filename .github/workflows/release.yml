@@ -34,6 +34,8 @@ jobs:
     outputs:
       published: ${{ steps.tag.outputs.published }}
       version: ${{ steps.tag.outputs.version }}
+      node-published: ${{ steps.tag.outputs.node-published }}
+      node-version: ${{ steps.tag.outputs.node-version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -43,7 +45,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           registry-url: https://npm.pkg.github.com
-          scope: "@fanfinity"
+          scope: "@sfere-io"
       - run: npm ci
       # Build here: `changeset publish` packs whatever is on disk, and dist/ is
       # gitignored. Without this step every npm release up to sfere-sdk 0.3.1 and
@@ -88,8 +90,9 @@ jobs:
       #
       # Tags: the browser SDK keeps plain `vX.Y.Z` (cdn-deploy.yml and the
       # GitHub release check it out); every other package gets the Changesets
-      # form `<name>@X.Y.Z`. The job outputs describe the browser SDK only,
-      # because only it has release artifacts and a CDN deploy.
+      # form `<name>@X.Y.Z`. `published`/`version` describe the browser SDK
+      # (release artifacts, the React release page and the CDN deploy hang off
+      # it); `node-published`/`node-version` drive the Node SDK's release page.
       #
       # Pushed with the GITHUB_TOKEN credentials actions/checkout persisted. A tag
       # pushed by GITHUB_TOKEN never starts other workflows, which is fine: the
@@ -98,9 +101,12 @@ jobs:
         id: tag
         if: steps.changesets.outputs.has-changesets == 'false'
         run: |
-          BROWSER="@fanfinity/sfere-sdk"
+          BROWSER="@sfere-io/sfere-sdk"
+          NODE="@sfere-io/sfere-node"
           PUBLISHED=false
           VERSION=""
+          NODE_PUBLISHED=false
+          NODE_VERSION=""
           for manifest in packages/*/package.json; do
             if [ "$(node -p "require('./$manifest').private === true")" = "true" ]; then continue; fi
             NAME="$(node -p "require('./$manifest').name")"
@@ -132,10 +138,15 @@ jobs:
             if [ "$NAME" = "$BROWSER" ]; then
               PUBLISHED=true
               VERSION="$V"
+            elif [ "$NAME" = "$NODE" ]; then
+              NODE_PUBLISHED=true
+              NODE_VERSION="$V"
             fi
           done
           echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "node-published=$NODE_PUBLISHED" >> "$GITHUB_OUTPUT"
+          echo "node-version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -144,7 +155,7 @@ jobs:
     if: needs.version-or-publish.outputs.published == 'true'
     runs-on: ubuntu-24.04
     permissions:
-      contents: write # create the GitHub release
+      contents: write # create the Browser and React GitHub releases
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -170,16 +181,103 @@ jobs:
             *) echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
           esac
 
+      # One release page per framework: Browser (this tag, with the CDN files),
+      # React and Node. React ships inside @sfere-io/sfere-sdk at the /react
+      # subpath, so its page is the same version and commit as the browser one,
+      # under its own `react-vX.Y.Z` tag. Both pages quote this version's
+      # CHANGELOG.md section.
+      - name: Release notes
+        env:
+          VERSION: ${{ needs.version-or-publish.outputs.version }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          awk -v heading="## $VERSION" '$0 == heading { found = 1; next } /^## / && found { exit } found' \
+            packages/browser/CHANGELOG.md > "$RUNNER_TEMP/browser-changes.md"
+          {
+            echo "Browser SDK \`@sfere-io/sfere-sdk@$VERSION\`: npm on GitHub Packages, and the CDN files attached below."
+            cat "$RUNNER_TEMP/browser-changes.md"
+          } > "$RUNNER_TEMP/browser-notes.md"
+          {
+            echo "React bindings for the Sfere browser SDK. They ship inside \`@sfere-io/sfere-sdk@$VERSION\` at the \`@sfere-io/sfere-sdk/react\` subpath, so this page has the same version and commit as [Browser SDK v$VERSION]($REPO_URL/releases/tag/v$VERSION)."
+            echo
+            echo '```sh'
+            echo "npm install @sfere-io/sfere-sdk@$VERSION"
+            echo '```'
+            echo
+            echo '```tsx'
+            echo 'import { SfereProvider, useSfere, usePageTracking } from "@sfere-io/sfere-sdk/react";'
+            echo '```'
+            echo
+            echo "React 17 to 19 is an optional peer dependency."
+            echo
+            echo "## Changes in v$VERSION"
+            cat "$RUNNER_TEMP/browser-changes.md"
+          } > "$RUNNER_TEMP/react-notes.md"
+
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: "v${{ needs.version-or-publish.outputs.version }}"
-          name: "v${{ needs.version-or-publish.outputs.version }}"
+          name: "Browser SDK v${{ needs.version-or-publish.outputs.version }}"
           prerelease: ${{ steps.kind.outputs.prerelease }}
+          body_path: ${{ runner.temp }}/browser-notes.md
           generate_release_notes: true
           files: |
             packages/browser/dist/cdn/sfere.min.js
             packages/browser/dist/cdn/sfere.js
             packages/browser/dist/cdn/manifest.json
+
+      # The action creates the `react-v` tag on the commit `vX.Y.Z` points at
+      # (github.sha: the tag step tagged HEAD of this run). make_latest stays
+      # false so the browser release remains the repository's "Latest".
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: "react-v${{ needs.version-or-publish.outputs.version }}"
+          target_commitish: ${{ github.sha }}
+          name: "React v${{ needs.version-or-publish.outputs.version }}"
+          prerelease: ${{ steps.kind.outputs.prerelease }}
+          make_latest: false
+          body_path: ${{ runner.temp }}/react-notes.md
+
+  # Release page for the Node SDK, cut whenever this run tagged a new
+  # `@sfere-io/sfere-node@X.Y.Z`, with or without a browser release.
+  release-node:
+    needs: version-or-publish
+    if: needs.version-or-publish.outputs.node-published == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # create the GitHub release
+    env:
+      TAG: "@sfere-io/sfere-node@${{ needs.version-or-publish.outputs.node-version }}"
+      VERSION: ${{ needs.version-or-publish.outputs.node-version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: "refs/tags/${{ env.TAG }}"
+
+      - name: Release notes
+        id: notes
+        run: |
+          {
+            echo "Node SDK \`@sfere-io/sfere-node@$VERSION\` on GitHub Packages."
+            echo
+            echo '```sh'
+            echo "npm install @sfere-io/sfere-node@$VERSION"
+            echo '```'
+            awk -v heading="## $VERSION" '$0 == heading { found = 1; next } /^## / && found { exit } found' \
+              packages/node/CHANGELOG.md
+          } > "$RUNNER_TEMP/node-notes.md"
+          case "$VERSION" in
+            *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ env.TAG }}
+          name: "Node SDK v${{ env.VERSION }}"
+          prerelease: ${{ steps.notes.outputs.prerelease }}
+          make_latest: false
+          body_path: ${{ runner.temp }}/node-notes.md
 
   # A called workflow can never hold more permissions than the calling job grants
   # it, so the WIF `id-token: write` cdn-deploy.yml's deploy job needs must be

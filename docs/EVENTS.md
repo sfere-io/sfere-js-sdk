@@ -1,6 +1,6 @@
 # Events Reference
 
-The Sfere SDK uses the GA4 e-commerce vocabulary for event and property names, so one instrumentation feeds analytics and server-side conversion destinations alike. The SDK passes event names and properties through untouched; the shapes below are also exported as TypeScript types (`EcommerceEventMap`, `Item`, `PurchaseProperties`, … from `@fanfinity/sfere-sdk`).
+The Sfere SDK uses the GA4 e-commerce vocabulary for event and property names, so one instrumentation feeds analytics and server-side conversion destinations alike. The SDK passes event names and properties through untouched; the shapes below are also exported as TypeScript types (`EcommerceEventMap`, `Item`, `PurchaseProperties`, … from `@sfere-io/sfere-sdk`).
 
 ## Naming rules
 

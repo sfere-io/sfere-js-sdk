@@ -47,7 +47,7 @@ If you use a nonce, put it on the inline loader snippet (`<script nonce="…">`)
 
 Call `sfere.page()` every time the route changes. The SDK does not track route changes automatically. With the CDN loader snippet the first page view is already sent by the snippet's `q.page()`; with npm, send it yourself after `load()`.
 
-### React and Next.js: `@fanfinity/sfere-sdk/react`
+### React and Next.js: `@sfere-io/sfere-sdk/react`
 
 The package ships React bindings as a subpath (React 17+ as an optional peer; nothing React-related loads unless you import it):
 
@@ -59,7 +59,7 @@ React Router v7:
 
 ```tsx
 import { useLocation } from "react-router-dom";
-import { SfereProvider, usePageTracking, useSfere } from "@fanfinity/sfere-sdk/react";
+import { SfereProvider, usePageTracking, useSfere } from "@sfere-io/sfere-sdk/react";
 
 function PageViews() {
   const { pathname, search } = useLocation();
@@ -88,7 +88,7 @@ Next.js App Router (`app/providers.tsx`, rendered from `app/layout.tsx`). The mo
 "use client";
 import { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { SfereProvider, usePageTracking } from "@fanfinity/sfere-sdk/react";
+import { SfereProvider, usePageTracking } from "@sfere-io/sfere-sdk/react";
 
 function PageViews() {
   const pathname = usePathname();
@@ -114,7 +114,7 @@ During server rendering the provider hands out an inert instance whose methods r
 ### Vue Router
 
 ```javascript
-import { SfereAnalytics } from "@fanfinity/sfere-sdk";
+import { SfereAnalytics } from "@sfere-io/sfere-sdk";
 import router from "./router";
 
 const sfere = SfereAnalytics.load({

@@ -90,7 +90,7 @@ for (const { title, block } of cases) {
     expect(typeof body.messageId).toBe("string");
     const context = asRecord(body.context);
     expect(asRecord(context.session).id).toEqual(expect.any(Number));
-    expect(asRecord(context.library).name).toBe("@fanfinity/sfere-sdk");
+    expect(asRecord(context.library).name).toBe("@sfere-io/sfere-sdk");
     // The environment fields the dependency's own plugin normally adds are still present.
     expect(typeof context.userAgent).toBe("string");
     expect(typeof context.locale).toBe("string");
