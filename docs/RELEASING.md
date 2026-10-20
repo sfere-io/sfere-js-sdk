@@ -52,16 +52,26 @@ reminder, not an automated gate.
 3. Before tagging, the release downloads each newly published version back
    from the registry and fails unless it contains its `dist/` entry points.
    Each package published gets a tag: `vX.Y.Z` for the browser SDK,
-   `@sfere-io/sfere-node@X.Y.Z` for the Node SDK. Only a browser release
-   continues below; a Node-only release stops at the tag.
+   `@sfere-io/sfere-node@X.Y.Z` for the Node SDK.
 4. On a successful browser publish: dist is
    rebuilt from that tag (deterministically — same inputs as `ci.yml`'s
-   build), a GitHub release is cut with `dist/cdn/sfere.min.js`,
-   `dist/cdn/sfere.js` and `dist/cdn/manifest.json` attached, and
-   `cdn-deploy.yml` is called to publish those same files to the CDN.
-   (Paths are under `packages/browser/` since the workspace layout.)
+   build), and two GitHub releases are cut:
+   - **Browser SDK vX.Y.Z** on `vX.Y.Z`, with `dist/cdn/sfere.min.js`,
+     `dist/cdn/sfere.js` and `dist/cdn/manifest.json` attached. It stays the
+     repository's "Latest" release.
+   - **React vX.Y.Z** on a new `react-vX.Y.Z` tag at the same commit. React
+     ships inside `@sfere-io/sfere-sdk` (the `/react` subpath), so this page
+     shares the browser version; it carries React install and import notes.
 
-You don't do any of steps 3–4 by hand — merging the Version Packages PR is the
+   Then `cdn-deploy.yml` is called to publish the CDN files.
+   (Paths are under `packages/browser/` since the workspace layout.)
+5. On a successful Node publish (with or without a browser one), the
+   `release-node` job cuts **Node SDK vX.Y.Z** on its
+   `@sfere-io/sfere-node@X.Y.Z` tag.
+
+Every release page quotes that version's `CHANGELOG.md` section.
+
+You don't do any of steps 3–5 by hand — merging the Version Packages PR is the
 only manual action.
 
 Two things worth knowing about that PR:

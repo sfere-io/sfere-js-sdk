@@ -1,4 +1,4 @@
-# @fanfinity/sfere-sdk
+# @sfere-io/sfere-sdk
 
 ## 0.3.2
 

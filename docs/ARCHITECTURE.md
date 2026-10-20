@@ -75,7 +75,7 @@ React stays a subpath of `packages/browser`. Python, Swift and Kotlin get their 
 - **Tags.** Per-package tags in the changesets form (`@sfere-io/sfere-node@x.y.z`), keeping plain `vX.Y.Z` for the browser package, because `cdn-deploy.yml` checks out `v${version}`.
 - **Tagging step.** The step in `release.yml` loops over every public `packages/*/package.json`.
 - **Rollbacks.** `cdn-deploy.yml` finds the browser package in the checked-out tag (`packages/browser`, or the repo root for v0.3.0 and older), so rolling back to a pre-workspace version still works.
-- **Gating.** `release-artifacts` and `cdn-deploy` run only when the browser package was published.
+- **Gating.** `release-artifacts` (the Browser and React release pages) and `cdn-deploy` run only when the browser package was published; `release-node` (the Node release page) only when the Node package was.
 
 
 
