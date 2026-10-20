@@ -11,7 +11,7 @@ _Internal maintainer runbook. Last verified 2026-09-28. Start here if you are ta
 | CDN, immutable | `https://cdn.sfere.io/sdk/v0.1.0/sfere.min.js` | live, `Cache-Control: public, max-age=31536000, immutable` |
 | CDN, alias | `https://cdn.sfere.io/sdk/v0.1/sfere.min.js` | live, `Cache-Control: public, max-age=300, stale-while-revalidate=86400` |
 | CDN, latest | `https://cdn.sfere.io/sdk/latest/sfere.min.js` | newest stable release across all lines; for embeds nobody can edit. Same caching as an alias ([CDN-POLICY.md](CDN-POLICY.md#the-latest-channel-embeds-you-can-never-edit)) |
-| SonarQube Cloud | project `fanfinity_sfere-sdk` (org `fanfinity`) | quality gate passing on `main` |
+| SonarQube Cloud | project `fanfinity_sfere-sdk` (org `sfere-io`) | quality gate passing on `main` |
 
 **Verified end to end on 2026-09-28:**
 - A page loaded the SDK from `cdn.sfere.io`, and the staging ingestion endpoint (`console.fanfinity.io`) answered `{"ok":true}` for page, identify and track.
