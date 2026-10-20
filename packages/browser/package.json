@@ -1,6 +1,6 @@
 {
   "name": "@sfere-io/sfere-sdk",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Sfere browser SDK: first-party event collection with ad click-ID enrichment",
   "license": "UNLICENSED",
   "private": false,
