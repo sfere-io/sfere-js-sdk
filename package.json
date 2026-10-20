@@ -1,7 +1,7 @@
 {
   "name": "sfere-sdk-workspace",
   "private": true,
-  "description": "Sfere SDKs: browser (@fanfinity/sfere-sdk, with /react), Node (@fanfinity/sfere-node)",
+  "description": "Sfere SDKs: browser (@sfere-io/sfere-sdk, with /react), Node (@sfere-io/sfere-node)",
   "license": "UNLICENSED",
   "type": "module",
   "workspaces": [
@@ -20,9 +20,9 @@
     "test": "npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
-    "size": "npm run size -w @fanfinity/sfere-sdk",
+    "size": "npm run size -w @sfere-io/sfere-sdk",
     "verify": "npm run verify --workspaces --if-present",
-    "cdn:manifest": "npm run cdn:manifest -w @fanfinity/sfere-sdk",
+    "cdn:manifest": "npm run cdn:manifest -w @sfere-io/sfere-sdk",
     "test:e2e": "npm run test:e2e --workspaces --if-present",
     "changeset": "changeset",
     "version-packages": "changeset version",

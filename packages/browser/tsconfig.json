@@ -15,7 +15,7 @@
     "resolveJsonModule": true,
     "noEmit": true,
     "types": ["node"],
-    "paths": { "@fanfinity/sfere-sdk": ["./src/index.ts"] }
+    "paths": { "@sfere-io/sfere-sdk": ["./src/index.ts"] }
   },
   "include": ["src", "test/unit", "tsup.config.ts", "vitest.config.ts"]
 }

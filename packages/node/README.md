@@ -2,25 +2,25 @@
 
 Send first-party fan events to Sfere from your server: purchases, refunds, sign-ups, and anything else your backend knows about. Each event carries the end user's IP, user agent and ad click IDs taken from their request, so server-side conversions match on ad platforms as well as browser events do.
 
-> **Status:** `@fanfinity/sfere-node` on GitHub Packages. Node.js 20+. ESM and CommonJS.
+> **Status:** `@sfere-io/sfere-node` on GitHub Packages. Node.js 20+. ESM and CommonJS.
 
 ## Install
 
 ```bash
-npm install @fanfinity/sfere-node
+npm install @sfere-io/sfere-node
 ```
 
 The package is on GitHub Packages. Create a token with the `read:packages` scope, then add to your `.npmrc`:
 
 ```
-@fanfinity:registry=https://npm.pkg.github.com
+@sfere-io:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=<YOUR_TOKEN>
 ```
 
 ## Quick start
 
 ```javascript
-import { SfereAnalytics, requestContext } from "@fanfinity/sfere-node";
+import { SfereAnalytics, requestContext } from "@sfere-io/sfere-node";
 
 const sfere = new SfereAnalytics({
   writeKey: process.env.SFERE_WRITE_KEY, // server key: keep it secret
@@ -90,7 +90,7 @@ When the event happens away from a customer request (a webhook, a cron job, a re
 
 | Field | Value |
 |---|---|
-| `context.library` | `{ name: "@fanfinity/sfere-node", version, base: "analytics-node@<version>" }` |
+| `context.library` | `{ name: "@sfere-io/sfere-node", version, base: "analytics-node@<version>" }` |
 | `properties.sfere_dedup_id` | On `track`: kept if you set it (use the order id), otherwise the event's `messageId` |
 
 The wire payload carries no `_metadata`, and no `integrations` unless you set some. Events leave in the order you send them. Email and phone are sent as plain values: Sfere hashes them per destination.
@@ -105,11 +105,11 @@ From the repository root:
 
 ```bash
 npm ci
-npm run build -w @fanfinity/sfere-node
-npm run test:coverage -w @fanfinity/sfere-node
-npm run verify -w @fanfinity/sfere-node     # dist contract
-npm run test:e2e -w @fanfinity/sfere-node   # packed tarball, real ESM + CommonJS apps
-SFERE_WRITE_KEY=… SFERE_HOST=https://… npm run smoke:staging -w @fanfinity/sfere-node
+npm run build -w @sfere-io/sfere-node
+npm run test:coverage -w @sfere-io/sfere-node
+npm run verify -w @sfere-io/sfere-node     # dist contract
+npm run test:e2e -w @sfere-io/sfere-node   # packed tarball, real ESM + CommonJS apps
+SFERE_WRITE_KEY=… SFERE_HOST=https://… npm run smoke:staging -w @sfere-io/sfere-node
 ```
 
 ## Third-party software

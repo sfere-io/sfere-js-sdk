@@ -6,7 +6,7 @@ import {
   URL_CLICK_IDS,
   clientIdsFromCookies,
   fbcFromFbclid,
-} from "@fanfinity/sfere-shared";
+} from "@sfere-io/sfere-shared";
 
 /**
  * The parts of an incoming request `requestContext()` reads. Satisfied by Node's `IncomingMessage`

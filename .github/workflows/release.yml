@@ -43,7 +43,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           registry-url: https://npm.pkg.github.com
-          scope: "@fanfinity"
+          scope: "@sfere-io"
       - run: npm ci
       # Build here: `changeset publish` packs whatever is on disk, and dist/ is
       # gitignored. Without this step every npm release up to sfere-sdk 0.3.1 and
@@ -98,7 +98,7 @@ jobs:
         id: tag
         if: steps.changesets.outputs.has-changesets == 'false'
         run: |
-          BROWSER="@fanfinity/sfere-sdk"
+          BROWSER="@sfere-io/sfere-sdk"
           PUBLISHED=false
           VERSION=""
           for manifest in packages/*/package.json; do

@@ -1,12 +1,12 @@
 {
-  "name": "@fanfinity/sfere-sdk",
+  "name": "@sfere-io/sfere-sdk",
   "version": "0.3.2",
   "description": "Sfere browser SDK: first-party event collection with ad click-ID enrichment",
   "license": "UNLICENSED",
   "private": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/fanfinity/sfere-sdk.git",
+    "url": "https://github.com/sfere-io/sfere-sdk.git",
     "directory": "packages/browser"
   },
   "type": "module",
@@ -72,7 +72,7 @@
     }
   },
   "devDependencies": {
-    "@fanfinity/sfere-shared": "0.0.0",
+    "@sfere-io/sfere-shared": "0.0.0",
     "@playwright/test": "^1.63.0",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.3",

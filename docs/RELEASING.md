@@ -1,6 +1,6 @@
 # Releasing
 
-How a release of `@fanfinity/sfere-sdk` actually happens, end to end. For what
+How a release of `@sfere-io/sfere-sdk` actually happens, end to end. For what
 each CI job checks, see `CI.md`. For the CDN side specifically, see
 `CDN-POLICY.md` and `../infra/cdn/README.md`.
 
@@ -41,7 +41,7 @@ reminder, not an automated gate.
      the `.changeset/*.md` files consumed. Nothing is published yet.
    - **No pending changesets** (this push *is* that PR's merge) → it
      publishes every public workspace package whose `package.json` version is
-     not yet on GitHub Packages (`@fanfinity/sfere-sdk`, `@fanfinity/sfere-node`).
+     not yet on GitHub Packages (`@sfere-io/sfere-sdk`, `@sfere-io/sfere-node`).
    The publish job builds every package first (`npm run build`); each
    package's `prepublishOnly` also refuses to publish without `dist/`.
    Releases up to `sfere-sdk` 0.3.1 and `sfere-node` 0.1.0 were published
@@ -52,7 +52,7 @@ reminder, not an automated gate.
 3. Before tagging, the release downloads each newly published version back
    from the registry and fails unless it contains its `dist/` entry points.
    Each package published gets a tag: `vX.Y.Z` for the browser SDK,
-   `@fanfinity/sfere-node@X.Y.Z` for the Node SDK. Only a browser release
+   `@sfere-io/sfere-node@X.Y.Z` for the Node SDK. Only a browser release
    continues below; a Node-only release stops at the tag.
 4. On a successful browser publish: dist is
    rebuilt from that tag (deterministically — same inputs as `ci.yml`'s
@@ -128,7 +128,7 @@ While in this mode, every merged changeset bumps a `-next.N` version instead
 of a normal one, and `release.yml`'s publish step ships it under the npm
 dist-tag `next` (Changesets does this automatically while `.changeset/pre.json`
 is present — nothing extra to configure). A consumer opts in with
-`npm install @fanfinity/sfere-sdk@next`; `npm install @fanfinity/sfere-sdk`
+`npm install @sfere-io/sfere-sdk@next`; `npm install @sfere-io/sfere-sdk`
 (no tag) is unaffected.
 
 A prerelease's CDN files still publish to their own immutable path
@@ -191,6 +191,6 @@ what's actually being served:
 | `cdn-production` | GitHub Environment | `cdn-deploy.yml` (`deploy` job) | Deployments only from `main`. No required reviewer (not available on the organisation's plan for private repos), see `CDN-POLICY.md` "Who approves". |
 | `GITHUB_TOKEN` | built-in | `release.yml` | Used as `NODE_AUTH_TOKEN` to publish to GitHub Packages, by `changesets/action` (its default token) for the Version Packages PR, and for the tag push / GitHub release. No manual setup. |
 
-All of the above are set on `fanfinity/sfere-sdk` (2026-09-28), and the CDN
+All of the above are set on `sfere-io/sfere-sdk` (2026-09-28), and the CDN
 infrastructure is provisioned. Current values and resource names are in
 `OPERATIONS.md`.

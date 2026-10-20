@@ -27,7 +27,7 @@ In GCP project `koratona-9791a`, region `me-central2` (Dammam — confirmed with
    "Alias overwrite: delete permission, scoped by IAM Condition". It is bound
    to the **existing** GitHub Actions Workload Identity pool (`github-pool` /
    `github-provider`, documented in `../../../backend/README.md` "One-time
-   GCP setup") for the `fanfinity/sfere-sdk` repo only. No new WIF pool is
+   GCP setup") for the `sfere-io/sfere-sdk` repo only. No new WIF pool is
    created.
 4. **A backend bucket** (`sfere-sdk-cdn-backend`) with Cloud CDN enabled:
    `cache-mode=USE_ORIGIN_HEADERS` (so the `Cache-Control` headers
@@ -133,9 +133,9 @@ the gap between provisioning and DNS propagation, not a misconfiguration.
 ## Repository variables this unblocks
 
 `provision.sh`'s final output lines are the exact values to set as repository
-Variables on `fanfinity/sfere-sdk` (see `../../docs/RELEASING.md`'s table):
+Variables on `sfere-io/sfere-sdk` (see `../../docs/RELEASING.md`'s table):
 `WIF_PROVIDER`, `CDN_DEPLOY_SA`, `GCP_PROJECT_ID`, `CDN_BUCKET`, and
-`CDN_BASE_URL`. They are set on `fanfinity/sfere-sdk`. In a fork or a new
+`CDN_BASE_URL`. They are set on `sfere-io/sfere-sdk`. In a fork or a new
 environment without them, `.github/workflows/cdn-deploy.yml` skips its deploy
 job cleanly (step-summary note, not a failure).
 
@@ -152,9 +152,10 @@ that part is not merely idempotent but actively syncs config changes; the
 - **New custom roles take up to a minute to become usable on the bucket.**
   The binding step fails with "Role ... does not exist in the resource's
   hierarchy" until then. `provision.sh` retries this for about 2 minutes.
-- **The WIF provider only accepts repos owned by `fanfinity`**
-  (`attributeCondition: assertion.repository_owner == 'fanfinity'`). The deploy
-  service account is additionally bound to `fanfinity/sfere-sdk` alone. A fork
+- **The WIF provider only accepts repos owned by the Sfere GitHub org**
+  (`attributeCondition: assertion.repository_owner_id == '194491647'`, the org's
+  numeric id, so renaming the org does not break it). The deploy service account
+  is additionally bound to this repo's numeric id (`attribute.repository_id/1392657629`) alone. A fork
   or a repo under another owner cannot deploy.
 
 ## Cache invalidation after an alias move

@@ -1,12 +1,12 @@
 {
-  "name": "@fanfinity/sfere-node",
+  "name": "@sfere-io/sfere-node",
   "version": "0.1.1",
   "description": "Sfere server SDK for Node.js: server-to-server event collection that forwards the end user's IP, user agent and ad click IDs",
   "license": "UNLICENSED",
   "private": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/fanfinity/sfere-sdk.git",
+    "url": "https://github.com/sfere-io/sfere-sdk.git",
     "directory": "packages/node"
   },
   "type": "module",
@@ -52,7 +52,7 @@
     "@segment/analytics-node": "3.1.0"
   },
   "devDependencies": {
-    "@fanfinity/sfere-shared": "0.0.0",
+    "@sfere-io/sfere-shared": "0.0.0",
     "@types/node": "^26.6.3",
     "@vitest/coverage-v8": "^5.0.2",
     "tsup": "^8.5.1",

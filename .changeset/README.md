@@ -1,6 +1,6 @@
 # Changesets
 
-This directory manages versioning and changelogs for `@fanfinity/sfere-sdk`
+This directory manages versioning and changelogs for `@sfere-io/sfere-sdk`
 with [Changesets](https://github.com/changesets/changesets). See
 `../docs/RELEASING.md` for the full release flow; the short version:
 

@@ -28,7 +28,7 @@ describe("SfereAnalytics", () => {
       `Basic ${Buffer.from(`${KEY}:`).toString("base64")}`,
     );
     expect(request!.body.writeKey).toBe(KEY);
-    expect(request!.headers["user-agent"]).toBe(`@fanfinity/sfere-node/${version}`);
+    expect(request!.headers["user-agent"]).toBe(`@sfere-io/sfere-node/${version}`);
   });
 
   it("sends the wire shape: Sfere library, no _metadata, no empty integrations, dedup id", async () => {
@@ -45,7 +45,7 @@ describe("SfereAnalytics", () => {
       expect(event).not.toHaveProperty("_metadata");
       expect(event).not.toHaveProperty("integrations");
       expect((event.context as Record<string, unknown>).library).toEqual({
-        name: "@fanfinity/sfere-node",
+        name: "@sfere-io/sfere-node",
         version,
         base: expect.stringMatching(/^analytics-node@\d+\.\d+\.\d+$/),
       });
