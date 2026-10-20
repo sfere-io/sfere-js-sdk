@@ -52,9 +52,7 @@ for (const file of ["dist/index.js", "dist/index.cjs"]) {
   check(!code.includes("@sfere-io/sfere-shared"), `${file} inlines the private shared package`);
 }
 check(
-  !Object.keys({ ...pkg.dependencies, ...pkg.peerDependencies }).includes(
-    "@sfere-io/sfere-shared",
-  ),
+  !Object.keys({ ...pkg.dependencies, ...pkg.peerDependencies }).includes("@sfere-io/sfere-shared"),
   "the private shared package is not a runtime dependency",
 );
 finish("banner and bundling");
