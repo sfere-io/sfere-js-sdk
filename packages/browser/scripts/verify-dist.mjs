@@ -80,7 +80,9 @@ for (const file of [
 ]) {
   const head = readFileSync(file, "utf8").slice(0, 400);
   check(
-    head.startsWith(`/*! Sfere SDK v${pkg.version}`) && head.includes("@segment/analytics-next"),
+    head.startsWith(`/*! Sfere SDK v${pkg.version}`) &&
+      head.includes("MIT License") &&
+      head.includes("@segment/analytics-next"),
     `${file} starts with the Sfere license banner`,
   );
 }
@@ -89,6 +91,7 @@ for (const file of ["dist/react.js", "dist/react.cjs"]) {
   const head = readFileSync(file, "utf8").slice(0, 400);
   check(
     head.startsWith(`/*! Sfere SDK v${pkg.version} React bindings`) &&
+      head.includes("MIT License") &&
       !head.includes("@segment/analytics-next"),
     `${file} starts with the React bindings banner`,
   );

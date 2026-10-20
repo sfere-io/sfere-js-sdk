@@ -2,7 +2,7 @@
   "name": "sfere-sdk-workspace",
   "private": true,
   "description": "Sfere SDKs: browser (@sfere-io/sfere-sdk, with /react), Node (@sfere-io/sfere-node)",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "workspaces": [
     "packages/shared",
