@@ -1,5 +1,11 @@
 # @sfere-io/sfere-sdk
 
+## 0.4.1
+
+### Patch Changes
+
+- d3cd093: The packages are now MIT-licensed (they were `UNLICENSED`). Each package ships a `LICENSE` file, and the bundle banners say `MIT License` instead of `All rights reserved`. No code changes.
+
 ## 0.4.0
 
 ### Minor Changes
