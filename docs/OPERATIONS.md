@@ -25,7 +25,7 @@ Production ingestion (`console.sfere.io`) has **not** received SDK traffic yet. 
 1. **Change code:** branch, then open a PR. CI runs typecheck, lint, unit tests, e2e, size, verify and Sonar.
 2. **Anything user-facing needs a changeset:** `npm run changeset` (patch / minor / major plus a one-line summary).
 3. **Merge to `main`:** `release.yml` opens or updates the **"chore: version packages"** PR.
-4. **Merge that PR to ship.** This one merge publishes to GitHub Packages, tags `vX.Y.Z`, creates the GitHub release and deploys the CDN. Details: [RELEASING.md](RELEASING.md).
+4. **Merge that PR to ship.** This one merge publishes to GitHub Packages, tags each package, creates the Browser, React and Node GitHub releases for what shipped, and deploys the CDN. Details: [RELEASING.md](RELEASING.md).
 
 ### Manual CDN deploy or rollback
 
