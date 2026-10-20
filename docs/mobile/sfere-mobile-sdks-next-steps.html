@@ -124,11 +124,11 @@ footer { margin-top: 56px; color: var(--muted); font-size: 13.5px; border-top: 1
   <div class="eyebrow">Sfere mobile SDKs · working plan</div>
   <h1>Next steps for the iOS and Android SDKs</h1>
   <p class="lede">What's left before the SDKs reach a beta app, the decisions that work needs from you, and the exact steps Claude follows in later sessions.</p>
-  <p class="meta">Written 2026-10-14, updated 2026-10-18. Repositories: <code>fanfinity/sfere-ios-sdk</code> and <code>fanfinity/sfere-android-sdk</code>. The project rules and run commands are in each repository's <code>CLAUDE.md</code>, and the original plan is in <code>sfere-mobile-sdks-plan.html</code> next to this page.</p>
+  <p class="meta">Written 2026-10-14, updated 2026-10-20. The GitHub organization was renamed from fanfinity to sfere-io on 2026-10-20; old links redirect. Repositories: <code>sfere-io/sfere-ios-sdk</code> and <code>sfere-io/sfere-android-sdk</code>. The project rules and run commands are in each repository's <code>CLAUDE.md</code>, and the original plan is in <code>sfere-mobile-sdks-plan.html</code> next to this page.</p>
 </header>
 
 <div class="callout">
-  <p><strong>Split on 2026-10-18.</strong> The combined repository <code>fanfinity/sfere-mobile-sdks</code> was deleted. The SDKs now live in <code>fanfinity/sfere-ios-sdk</code> and <code>fanfinity/sfere-android-sdk</code>, with history kept, and this page moved to <code>docs/mobile/</code> in <code>fanfinity/sfere-sdk</code>. Update it there with a docs PR.</p>
+  <p><strong>Split on 2026-10-18.</strong> The combined repository <code>fanfinity/sfere-mobile-sdks</code> was deleted. The SDKs now live in <code>sfere-io/sfere-ios-sdk</code> and <code>sfere-io/sfere-android-sdk</code>, with history kept, and this page moved to <code>docs/mobile/</code> in <code>sfere-io/sfere-sdk</code>. Update it there with a docs PR.</p>
   <p>Step results dated before the split use the old layout and commit hashes: <code>ios/Example</code> is now <code>Example/</code> in the iOS repo, <code>android/sample</code> is <code>sample/</code> in the Android repo, and the rewritten history gave every commit a new hash. Parity now spans both repositories: <code>tools/parity.sh</code>, identical in both, checks the shared fixtures and compares the payloads. CI (phase E) needs a cross-repo parity job.</p>
 </div>
 
@@ -156,8 +156,8 @@ footer { margin-top: 56px; color: var(--muted); font-size: 13.5px; border-top: 1
 <tr><td>Same payload on both platforms</td><td>The parity scenario matches on every field the SDKs control (<code>tools/parity.sh</code> in either repository). Platform context (device, os, app, …) is not compared yet, because the Android tests run without Android.</td></tr>
 <tr><td>Staging</td><td>Never contacted. It's unknown whether a browser key works on <code>/v1/batch/b</code> and whether the ingress accepts gzip.</td></tr>
 <tr><td>Sample apps and mock server</td><td>Built on 2026-10-15: <code>Example/</code> in the iOS repo, <code>sample/</code> in the Android repo, and <code>tools/mock_ingest.mjs</code> in both. The iOS app passed every D2 flow on a simulator; the Android app has not run on an emulator yet.</td></tr>
-<tr><td>UI tests, CI, publishing</td><td>None yet.</td></tr>
-<tr><td>Git</td><td>Split on 2026-10-18 into the private repos <code>github.com/sfere-io/sfere-ios-sdk</code> and <code>github.com/sfere-io/sfere-android-sdk</code>; the combined <code>github.com/sfere-io/sfere-mobile-sdks</code> was deleted. Pushes go over HTTPS with the <code>gh</code> login.</td></tr>
+<tr><td>UI tests, CI, publishing</td><td>Android: CI gate and GitHub Packages release flow in place (2026-10-20, PR #2, not yet tagged). iOS: none yet. UI tests: none yet.</td></tr>
+<tr><td>Git</td><td>Split on 2026-10-18 into the private repos <code>github.com/sfere-io/sfere-ios-sdk</code> and <code>github.com/sfere-io/sfere-android-sdk</code>; the combined <code>github.com/fanfinity/sfere-mobile-sdks</code> was deleted. Pushes go over HTTPS with the <code>gh</code> login.</td></tr>
 </tbody>
 </table></div>
 
@@ -191,7 +191,7 @@ footer { margin-top: 56px; color: var(--muted); font-size: 13.5px; border-top: 1
 <pre><code id="decision-record-view"></code></pre>
 <script type="application/json" id="decision-record">
 {
-  "updated": "2026-10-18",
+  "updated": "2026-10-20",
   "answers": {
     "Q1": {
       "value": null,
@@ -212,7 +212,7 @@ footer { margin-top: 56px; color: var(--muted); font-size: 13.5px; border-top: 1
     },
     "Q3": {
       "value": "two-private",
-      "note": "Answered 'not-yet' on 2026-10-15, changed to 'one-private' the same day (github.com/sfere-io/sfere-mobile-sdks). Superseded 2026-10-18: the user had that repo deleted and split into two private repos, fanfinity/sfere-ios-sdk and fanfinity/sfere-android-sdk, because apps integrate the SDKs differently. History kept."
+      "note": "Answered 'not-yet' on 2026-10-15, changed to 'one-private' the same day (github.com/fanfinity/sfere-mobile-sdks). Superseded 2026-10-18: the user had that repo deleted and split into two private repos, sfere-io/sfere-ios-sdk and sfere-io/sfere-android-sdk, because apps integrate the SDKs differently. History kept."
     },
     "Q4": {
       "value": "native"
@@ -237,8 +237,9 @@ footer { margin-top: 56px; color: var(--muted); font-size: 13.5px; border-top: 1
   "other": {
     "xcodegen": "Install approved 2026-10-15 for C1.",
     "repo-split": "2026-10-18: delete the GitHub repo only (keep this local folder); split into sfere-ios-sdk and sfere-android-sdk with history; commit and push both.",
-    "plan-docs-home": "2026-10-18: this page and the plan page move to fanfinity/sfere-sdk; open that PR only when the user asks.",
-    "testing-issue": "2026-10-18: issue #1 recreated in each new repo, assigned to the same two testers."
+    "plan-docs-home": "2026-10-18: this page and the plan page move to sfere-io/sfere-sdk; open that PR only when the user asks.",
+    "testing-issue": "2026-10-18: issue #1 recreated in each new repo, assigned to the same two testers.",
+    "android-ci-cd": "2026-10-20: Android CI/CD and GitHub Packages publishing built on the sfere-io/apis model (sfere-android-sdk PR #2). Q7 'pr' applied for Android; emulator job deferred to D3."
   }
 }
 </script>
@@ -447,7 +448,7 @@ footer { margin-top: 56px; color: var(--muted); font-size: 13.5px; border-top: 1
     },
     {
       "id": "Q8",
-      "title": "Update the shared contract docs in fanfinity/sfere-sdk",
+      "title": "Update the shared contract docs in sfere-io/sfere-sdk",
       "why": "WIRE-CONTRACT.md says a mobile SDK is done when it matches; its Mobile column and EVENTS.md need the mobile event names and the verified behaviour.",
       "unblocks": [
         "H1"
@@ -658,7 +659,8 @@ footer { margin-top: 56px; color: var(--muted); font-size: 13.5px; border-top: 1
           "status": "todo",
           "title": "GitHub Actions workflows",
           "body": "ios job (macOS runner: swift test, simulator build), android job (Ubuntu: Gradle test and AAR), parity job (both tests, then tools/parity_diff.py). Add simulator and emulator jobs according to Q7, and protect main.",
-          "done": "A PR shows all checks green."
+          "done": "A PR shows all checks green.",
+          "result": "2026-10-20, Android part done in sfere-io/sfere-android-sdk (commits f30fd8c and bfa8981, PR #2, awaiting review). ci.yml on every PR and push to main, modelled on sfere-io/apis: Kotlin style (ktlint), Static analysis (detekt + Android Lint, warnings as errors), API contract (public API dump, vendor-name guard, immutable released versions, CHANGELOG rule), Tests & coverage (JaCoCo), SonarQube (skipped until SONAR_TOKEN), Build (AAR, sample APK, local Maven publish verified). Rulesets protect-main (6 required checks, 1 approval, code owners, squash only, no bypass), protect-tags and release-tags (admins create v* tags). Dependabot for Gradle and actions; actions pinned by SHA. All six checks green on PR #2. Still open: the iOS job (macOS runner) and the cross-repo parity job; no emulator job until D3 adds Espresso tests."
         }
       ]
     },
@@ -675,7 +677,8 @@ footer { margin-top: 56px; color: var(--muted); font-size: 13.5px; border-top: 1
           "status": "todo",
           "title": "Versioning and release flow",
           "body": "Version 0.1.0-beta.1 in one place per platform, generated into context.library.version, and a CHANGELOG. iOS: a git tag is the release (SPM). Android: maven-publish to GitHub Packages. After publishing, download the AAR again and verify it before tagging, as the JS release does.",
-          "done": "A blank test app installs both from the private sources, following only the READMEs."
+          "done": "A blank test app installs both from the private sources, following only the READMEs.",
+          "result": "2026-10-20, Android part done (same PR #2): VERSION_NAME=0.1.0-beta.1 in gradle.properties is the one version source (context.library.version, Maven version, tag); CHANGELOG.md; release.yml on a v* tag runs the full CI gate, publishes io.sfere:analytics to GitHub Packages, downloads the AAR back and compares its sha256, then creates the GitHub release with the CHANGELOG section as notes. Not yet tagged: v0.1.0-beta.1 waits for the PR to merge and an admin to tag main. iOS versioning and tag flow still todo. The blank-app install check (G1 done-when) runs after the first tag."
         },
         {
           "id": "G2",
