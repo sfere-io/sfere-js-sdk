@@ -1,6 +1,6 @@
 {
   "name": "@sfere-io/sfere-node",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Sfere server SDK for Node.js: server-to-server event collection that forwards the end user's IP, user agent and ad click IDs",
   "license": "MIT",
   "private": false,
