@@ -12,14 +12,30 @@
 #   <tarball>   the .tgz downloaded back from GitHub Packages. It is published
 #               to npmjs unchanged, so both registries serve the same bytes.
 #
+# Authentication, first match wins:
+#   1. NPM_PUBLISH_TOKEN set: npm token with write access to the @sfere-io
+#      scope that publishes without a one-time password. Kept while the
+#      release moves to Trusted Publishing; remove the NPM_TOKEN secret once
+#      Trusted Publishing works (docs/RELEASING.md).
+#   2. GitHub Actions with `permissions: id-token: write`
+#      (GITHUB_ACTIONS=true, ACTIONS_ID_TOKEN_REQUEST_URL and
+#      ACTIONS_ID_TOKEN_REQUEST_TOKEN set): npm Trusted Publishing. No token
+#      is written anywhere: `npm publish` (npm >= 11.5.1) exchanges the job's
+#      OIDC token for a short-lived publish token and attaches provenance.
+#      Needs a trusted publisher entry for the package on npmjs.com.
+#   3. Neither: nothing is published or checked, a ::warning:: is printed,
+#      exit 0.
+# With `id-token: write` granted, npm also tries the OIDC exchange in case 1
+# and uses the exchanged token when it succeeds, so a leftover NPM_TOKEN does
+# not get in the way of Trusted Publishing.
+#
 # Env:
-#   NPM_PUBLISH_TOKEN  npm automation (or granular, 2FA-bypassing) token with
-#                      write access to the @sfere-io scope. Empty: nothing is
-#                      published or checked, a ::warning:: is printed, exit 0.
+#   NPM_PUBLISH_TOKEN  see case 1 above. Empty or unset: case 2 or 3.
 #   DRY_RUN=1          run `npm publish --dry-run` and skip the download-back.
 #
 # Prints exactly one word on stdout: `published`, `exists` (already on npmjs,
-# e.g. a re-run) or `skipped` (no token). Everything else goes to stderr.
+# e.g. a re-run) or `skipped` (no token and no OIDC). Everything else goes to
+# stderr.
 #
 # Registry routing, verified with `npm publish --dry-run` on npm 10 and 11:
 #   - publishConfig.registry (npm.pkg.github.com, in the tarball's package.json)
@@ -50,10 +66,16 @@ ANON_RC="$WORK/anonymous.npmrc"
 printf 'registry=%s\n%s:registry=%s\n' "$NPMJS" "$SCOPE" "$NPMJS" > "$ANON_RC"
 npmjs_anon() { (cd "$WORK" && npm "$@" --userconfig "$ANON_RC" --registry "$NPMJS" "--$SCOPE:registry=$NPMJS"); }
 
-# No token: skip before contacting npmjs at all, so a missing secret can never
-# fail the release.
-if [ -z "${NPM_PUBLISH_TOKEN:-}" ]; then
-  log "::warning::NPM_TOKEN is not set: $NAME@$VERSION was published to GitHub Packages only, not to registry.npmjs.org. Add the NPM_TOKEN repository secret before the next release (docs/RELEASING.md)."
+# Pick the credentials. Neither a token nor OIDC: skip before contacting npmjs
+# at all, so a run without either can never fail the release.
+if [ -n "${NPM_PUBLISH_TOKEN:-}" ]; then
+  AUTH_MODE=token
+  log "Authenticating to registry.npmjs.org with NPM_PUBLISH_TOKEN."
+elif [ "${GITHUB_ACTIONS:-}" = "true" ] && [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] && [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+  AUTH_MODE=oidc
+  log "Authenticating to registry.npmjs.org with Trusted Publishing (GitHub Actions OIDC)."
+else
+  log "::warning::Neither NPM_TOKEN nor Trusted Publishing is available: $NAME@$VERSION was published to GitHub Packages only, not to registry.npmjs.org. Set up npm Trusted Publishing for this package and grant the job \`id-token: write\` (docs/RELEASING.md, \"Trusted Publishing\")."
   echo skipped
   exit 0
 fi
@@ -72,6 +94,16 @@ if [ -s "$WORK/view.errors" ] && ! grep -q "E404" "$WORK/view.errors"; then
   exit 1
 fi
 
+# Trusted Publishing needs npm 11.5.1 or newer; older versions publish without
+# credentials and fail with ENEEDAUTH. Say so plainly instead.
+if [ "$AUTH_MODE" = oidc ]; then
+  NPM_VERSION="$(npm --version)"
+  if ! node -e 'const [a, b, c] = process.argv[1].split(/[.-]/).map(Number); process.exit(a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1))) ? 0 : 1)' "$NPM_VERSION"; then
+    log "::error::Trusted Publishing needs npm 11.5.1 or newer, this job runs npm $NPM_VERSION."
+    exit 1
+  fi
+fi
+
 # Mirror the dist-tag the version got on GitHub Packages (latest, or the
 # prerelease tag Changesets used, e.g. next). Read through the caller's own npm
 # config, which points the scope at GitHub Packages.
@@ -81,17 +113,37 @@ if [ -z "$DIST_TAG" ]; then
   case "$VERSION" in *-*) DIST_TAG=next ;; *) DIST_TAG=latest ;; esac
 fi
 
-# The token is handed to npm as NODE_AUTH_TOKEN, only for these calls.
+# Same routing for both modes. Token mode: the token is handed to npm as
+# NODE_AUTH_TOKEN, only for these calls. OIDC mode: the userconfig has no
+# _authToken line and NODE_AUTH_TOKEN (the GitHub Packages token in
+# release.yml) is removed, so the only credential npm can use for
+# registry.npmjs.org is the one it gets from the OIDC exchange.
 AUTH_RC="$WORK/npmjs.npmrc"
-printf 'registry=%s\n%s:registry=%s\n//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\n' "$NPMJS" "$SCOPE" "$NPMJS" > "$AUTH_RC"
+printf 'registry=%s\n%s:registry=%s\n' "$NPMJS" "$SCOPE" "$NPMJS" > "$AUTH_RC"
+if [ "$AUTH_MODE" = token ]; then
+  printf '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\n' >> "$AUTH_RC"
+fi
+PUBLISH_ARGS=(publish "$TARBALL" --userconfig "$AUTH_RC" --registry "$NPMJS" "--$SCOPE:registry=$NPMJS"
+  --access public --tag "$DIST_TAG" --ignore-scripts)
 npmjs_publish() {
-  (cd "$WORK" && NODE_AUTH_TOKEN="$NPM_PUBLISH_TOKEN" npm publish "$TARBALL" \
-    --userconfig "$AUTH_RC" --registry "$NPMJS" "--$SCOPE:registry=$NPMJS" \
-    --access public --tag "$DIST_TAG" --ignore-scripts "$@")
+  if [ "$AUTH_MODE" = token ]; then
+    (cd "$WORK" && NODE_AUTH_TOKEN="$NPM_PUBLISH_TOKEN" npm "${PUBLISH_ARGS[@]}" "$@")
+  else
+    (cd "$WORK" && env -u NODE_AUTH_TOKEN npm "${PUBLISH_ARGS[@]}" "$@")
+  fi
 }
 
 # Guard: a dry run must target registry.npmjs.org before anything is sent.
+# In OIDC mode npm already performs the token exchange during the dry run, and
+# warns that it is not logged in when the exchange failed.
 npmjs_publish --dry-run > "$WORK/dry.out" 2>&1 || { cat "$WORK/dry.out" >&2; exit 1; }
+if [ "$AUTH_MODE" = oidc ] && grep -q "requires you to be logged in" "$WORK/dry.out"; then
+  cat "$WORK/dry.out" >&2
+  WORKFLOW_FILE="${GITHUB_WORKFLOW_REF:-<workflow>.yml}"
+  WORKFLOW_FILE="${WORKFLOW_FILE%%@*}"
+  log "::error::npm could not exchange this job's OIDC token for a publish token for $NAME. On npmjs.com the package needs a trusted publisher (GitHub Actions) for repository ${GITHUB_REPOSITORY:-<owner/repo>} and workflow filename ${WORKFLOW_FILE##*/} (plus the job's environment, if it has one), with npm publish allowed (docs/RELEASING.md, \"Trusted Publishing\")."
+  exit 1
+fi
 if ! grep -q "Publishing to https://registry.npmjs.org/ with tag $DIST_TAG and public access" "$WORK/dry.out"; then
   cat "$WORK/dry.out" >&2
   log "::error::npm would not publish $NAME@$VERSION to registry.npmjs.org with public access; refusing."

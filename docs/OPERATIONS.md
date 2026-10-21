@@ -6,7 +6,7 @@ _Internal maintainer runbook. "What is live" last updated 2026-10-21. Start here
 
 | Thing | Where | State |
 |---|---|---|
-| npm packages, public registry | `@sfere-io/sfere-sdk` and `@sfere-io/sfere-node` on registry.npmjs.org, public, no token to install | starts with the next release (`sfere-sdk` 0.4.2, `sfere-node` 0.2.2). Needs the `sfere-io` npm organisation and the `NPM_TOKEN` secret ([RELEASING.md](RELEASING.md#publishing-to-the-public-npm-registry)) |
+| npm packages, public registry | `@sfere-io/sfere-sdk` and `@sfere-io/sfere-node` on registry.npmjs.org, public, no token to install | not published yet: the first versions (`sfere-sdk` 0.4.2, `sfere-node` 0.2.2) need a one-time publish by hand, then a trusted publisher on each package ([RELEASING.md](RELEASING.md#trusted-publishing)) |
 | npm packages, GitHub Packages | the same two packages on npm.pkg.github.com, a mirror for maintainers (installing from it needs a token with `read:packages`, even though the repo is public) | `sfere-sdk` **0.4.1**, `sfere-node` **0.2.1** |
 | Git tags + GitHub releases | `v0.4.1` (Browser SDK, with `sfere.min.js`, `sfere.js` and `manifest.json` attached), `react-v0.4.1`, `@sfere-io/sfere-node@0.2.1` | done |
 | CDN, immutable | `https://cdn.sfere.io/sdk/v0.4.1/sfere.min.js` (one path per released version, `v0.4.X`) | live, `Cache-Control: public, max-age=31536000, immutable` |
@@ -76,7 +76,7 @@ If you skip this, the second deploy on that line fails with a 403 on the alias u
 
 ## GitHub repository settings
 
-- **Repository variables:** `WIF_PROVIDER`, `CDN_DEPLOY_SA`, `GCP_PROJECT_ID`, `CDN_BUCKET`, `CDN_BASE_URL`, all set. Secrets: `SONAR_TOKEN`, set; `NPM_TOKEN` (publishing to registry.npmjs.org), required before the next release, see [RELEASING.md](RELEASING.md#publishing-to-the-public-npm-registry).
+- **Repository variables:** `WIF_PROVIDER`, `CDN_DEPLOY_SA`, `GCP_PROJECT_ID`, `CDN_BUCKET`, `CDN_BASE_URL`, all set. Secrets: `SONAR_TOKEN`, set; `NPM_TOKEN`, set on 2026-10-21 but being retired: publishing to registry.npmjs.org moves to npm Trusted Publishing (no secret), see [RELEASING.md](RELEASING.md#trusted-publishing).
 - **`cdn-production` environment:** deployments only from `main`. It has **no required reviewer**, because the organisation's GitHub plan does not offer required reviewers on private repos. Anyone who can merge to `main`, or dispatch the workflow on `main`, can deploy the CDN.
 - **Allow GitHub Actions to create and approve pull requests:** on, both at the organisation level and on this repo. The Version Packages PR needs it.
 - **Dependabot:**

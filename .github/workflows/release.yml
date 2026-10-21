@@ -31,7 +31,8 @@ jobs:
     permissions:
       contents: write # push the Version PR branch / the release tag
       pull-requests: write # open/update the Version Packages PR
-      packages: write # publish to GitHub Packages (npmjs uses the NPM_TOKEN secret)
+      packages: write # publish to GitHub Packages
+      id-token: write # npm Trusted Publishing (OIDC) to registry.npmjs.org, see scripts/npmjs-publish.sh
     outputs:
       published: ${{ steps.tag.outputs.published }}
       version: ${{ steps.tag.outputs.version }}
@@ -82,6 +83,15 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # npm Trusted Publishing needs npm 11.5.1 or newer, and Node 22 (.nvmrc)
+      # ships npm 10. Upgraded only here, after `changeset publish`, so the
+      # GitHub Packages publish keeps the bundled npm. Pinned to an exact version.
+      - name: Install npm for Trusted Publishing
+        if: steps.changesets.outputs.has-changesets == 'false'
+        run: |
+          npm install --global npm@11.21.0
+          echo "node $(node --version), npm $(npm --version)"
+
       # Decide "published" ourselves instead of trusting the action's output: with
       # `--no-git-tag` the Changesets CLI emits no release events, so the action
       # reports published=false even after a successful publish (seen on the
@@ -96,11 +106,15 @@ jobs:
       # which republishes the exact tarball downloaded back from GitHub Packages
       # and downloads the npmjs copy back without a token. Only untagged versions
       # are mirrored, so versions released before npmjs publishing existed
-      # (sfere-sdk <= 0.4.1, sfere-node <= 0.2.1) are never backfilled. Without
-      # the NPM_TOKEN secret the mirror is skipped with a ::warning:: and the
-      # release continues. Every package is verified and mirrored before any tag
-      # is pushed, so a failed npmjs publish leaves nothing tagged and a re-run
-      # of this job retries it (the script skips a version already on npmjs).
+      # (sfere-sdk <= 0.4.1, sfere-node <= 0.2.1) are never backfilled. The
+      # script authenticates with the NPM_TOKEN secret while it is set, and
+      # otherwise with npm Trusted Publishing: this job's `id-token: write`
+      # lets `npm publish` exchange a GitHub OIDC token for a short-lived npm
+      # token and attach provenance. A package without a trusted publisher on
+      # npmjs.com fails the step (nothing tagged) rather than being skipped.
+      # Every package is verified and mirrored before any tag is pushed, so a
+      # failed npmjs publish leaves nothing tagged and a re-run of this job
+      # retries it (the script skips a version already on npmjs).
       #
       # Tags: the browser SDK keeps plain `vX.Y.Z` (cdn-deploy.yml and the
       # GitHub release check it out); every other package gets the Changesets
@@ -155,7 +169,7 @@ jobs:
             case "$MIRROR" in
               published) echo "Published $NAME@$V to registry.npmjs.org." >> "$GITHUB_STEP_SUMMARY" ;;
               exists) echo "$NAME@$V was already on registry.npmjs.org." >> "$GITHUB_STEP_SUMMARY" ;;
-              *) echo "$NAME@$V was NOT published to registry.npmjs.org: the NPM_TOKEN secret is not set." >> "$GITHUB_STEP_SUMMARY" ;;
+              *) echo "$NAME@$V was NOT published to registry.npmjs.org: no NPM_TOKEN secret and no OIDC token (id-token: write)." >> "$GITHUB_STEP_SUMMARY" ;;
             esac
             RELEASED+=("$NAME|$V|$TAG|$MIRROR")
           done
@@ -186,8 +200,10 @@ jobs:
           # GitHub Packages reads (npm view / npm pack above) go through the
           # .npmrc actions/setup-node wrote, with this token.
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # npm automation token for registry.npmjs.org. The script passes it to
-          # npm as NODE_AUTH_TOKEN for the npmjs publish only. Empty = skip.
+          # npm token for registry.npmjs.org, kept during the move to Trusted
+          # Publishing. The script passes it to npm as NODE_AUTH_TOKEN for the
+          # npmjs publish only. Empty = Trusted Publishing (OIDC). Remove this
+          # line and the secret once Trusted Publishing works (docs/RELEASING.md).
           NPM_PUBLISH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   release-artifacts:
