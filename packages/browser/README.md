@@ -2,7 +2,7 @@
 
 Collect first-party fan engagement events in real time. The Sfere SDK enriches every event with ad platform click IDs and identifiers from your site, then sends them to the Sfere ingestion endpoint for activation across sponsorship and monetization channels.
 
-> **Status:** 0.1.0 is live — `https://cdn.sfere.io/sdk/v0.1/sfere.min.js` and `@sfere-io/sfere-sdk@0.1.0` on GitHub Packages. Maintainers: start with [docs/OPERATIONS.md](../../docs/OPERATIONS.md).
+> **Status:** the 0.4 line. Load it from the CDN at `https://cdn.sfere.io/sdk/v0.4/sfere.min.js`, or install it from npm (on the public npm registry from 0.4.2, no token needed). Maintainers: start with [docs/OPERATIONS.md](../../docs/OPERATIONS.md).
 
 ## Quick start
 
@@ -24,7 +24,7 @@ Paste the loader snippet into your page's `<head>`, replacing `YOUR_WRITE_KEY` a
     });
     var s = d.createElement("script");
     s.async = true;
-    s.src = "https://cdn.sfere.io/sdk/v0.1/sfere.min.js";
+    s.src = "https://cdn.sfere.io/sdk/v0.4/sfere.min.js";
     s.setAttribute("data-write-key", "YOUR_WRITE_KEY");
     s.setAttribute("data-host", "https://YOUR_INGESTION_HOST");
     d.head.appendChild(s);
@@ -47,7 +47,7 @@ Then, anywhere on the page:
 
 The snippet already sends the first `page()`; call `sfere.page()` yourself only on later route changes. Add `s.setAttribute("data-batching", "true")` next to the other attributes to enable [batching](#configuration). The bundle also exposes `window.SfereSDK = { load, sfereEnrichment, version }` for pages that prefer to call `load()` themselves.
 
-`https://cdn.sfere.io/sdk/v0.1/` is the **alias** URL: it follows the latest 0.1.x patch. For a production page pinned with Subresource Integrity, use the **immutable** URL `https://cdn.sfere.io/sdk/v0.1.0/sfere.min.js` with the `integrity` hash from that build's `manifest.json` — see [docs/CDN-POLICY.md](../../docs/CDN-POLICY.md). Never put an SRI hash on the alias URL. For embeds you can never edit again (an app-store app, a published tag template), use `https://cdn.sfere.io/sdk/latest/sfere.min.js`: it follows every stable release, across lines and majors.
+`https://cdn.sfere.io/sdk/v0.4/` is the **alias** URL: it follows the latest 0.4.x patch. For a production page pinned with Subresource Integrity, use an **immutable** URL, `https://cdn.sfere.io/sdk/v0.4.X/sfere.min.js` for a released 0.4.X (for example `https://cdn.sfere.io/sdk/v0.4.1/sfere.min.js`), with the `integrity` hash from that build's `manifest.json`. See [docs/CDN-POLICY.md](../../docs/CDN-POLICY.md). Never put an SRI hash on the alias URL. For embeds you can never edit again (an app-store app, a published tag template), use `https://cdn.sfere.io/sdk/latest/sfere.min.js`: it follows every stable release, across lines and majors.
 
 ### npm
 
@@ -55,12 +55,7 @@ The snippet already sends the first `page()`; call `sfere.page()` yourself only 
 npm install @sfere-io/sfere-sdk
 ```
 
-The package is on GitHub Packages. Create a token with the `read:packages` scope, then add to your `.npmrc`:
-
-```
-@sfere-io:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=<YOUR_TOKEN>
-```
+The package is on the public npm registry, so no token or `.npmrc` setup is needed. React bindings ship in the same package at `@sfere-io/sfere-sdk/react`.
 
 Initialize the SDK:
 
@@ -98,7 +93,7 @@ const sfere = useSfere();
 sfere.track("add_to_cart", { currency: "SAR", value: 29.99, items: [/* … */] });
 ```
 
-The provider loads the SDK once per write key and host, StrictMode included. React is an optional peer dependency (17+). For React Router and the Next.js App/Pages Router setups, see [Integration guide: React and Next.js](../../docs/INTEGRATION.md#react-and-nextjs-fanfinitysfere-sdkreact).
+The provider loads the SDK once per write key and host, StrictMode included. React is an optional peer dependency (17+). For React Router and the Next.js App/Pages Router setups, see [Integration guide: React and Next.js](../../docs/INTEGRATION.md#react-and-nextjs-sfere-iosfere-sdkreact).
 
 ## Configuration
 
@@ -129,7 +124,7 @@ Script-tag attributes: `data-write-key`, `data-host`, and optionally `data-batch
 | `context.traits` | The visitor's identify traits, copied onto every later event so server-side destinations can match on email and phone. Turn off with `carryTraits: false` | `{ "email": "fan@example.com", "phone": "+966500000000" }` |
 | `context.consent` | Categories from the `consent` option or `setConsent()`; omitted when unset | `{ "categoryPreferences": { "advertising": true } }` |
 | `context.page.lang` | `<html lang>` when set | `"ar"` |
-| `context.library` | This SDK, with the underlying library under `base` | `{ "name": "@sfere-io/sfere-sdk", "version": "0.1.0", "base": "analytics-next@1.84.3" }` |
+| `context.library` | This SDK, with the underlying library under `base` | `{ "name": "@sfere-io/sfere-sdk", "version": "0.4.1", "base": "analytics-next@1.84.3" }` |
 | `properties.sfere_dedup_id` | On `track` only: kept if your site set it, otherwise the event's `messageId`. Server-side destinations dedupe on `messageId`, so give browser pixels the `messageId` ([Deduplication](../../docs/INTEGRATION.md#deduplication)) | `"ajs-next-1727500000000-…"` |
 
 A landing `fbclid` becomes `context.clientIds.fbc` in Meta's `fb.1.<ms>.<fbclid>` format. The wire payload carries no `_metadata`, and no `integrations` unless you set some on the call.

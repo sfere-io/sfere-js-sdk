@@ -4,7 +4,7 @@ Send events to Sfere from any language or platform without an SDK. The payload i
 
 ## Base URL and keys
 
-- **Base URL:** your ingestion host, e.g. `https://ingest.example.com`. Sfere gives you this with your write keys.
+- **Base URL:** the Sfere event host, `https://events.sfere.io`, unless Sfere gives you a different ingestion host with your write keys. The examples below use the placeholder `https://ingest.example.com`.
 - **Browser key:** for code that runs on the visitor's device. It is public.
 - **Server key:** for your backend only. Keep it secret.
 

@@ -6,22 +6,28 @@ Step-by-step walkthrough to instrument your site with the Sfere SDK.
 
 Contact your Sfere account manager to obtain a public browser write key in the format `keyId:secret`. This is safe to embed in client-side code—do not use server-side keys.
 
+You also need the ingestion host your events go to. The Sfere event host is `https://events.sfere.io`; use another host only if Sfere gives you one with your keys. The examples in this guide use the placeholder `https://ingest.example.com`.
+
 ## Pick CDN or npm
 
-**CDN**: Fastest setup, no build required. Paste the loader snippet from the [README](../README.md#script-tag-cdn) (it is `src/cdn/snippet.html`, verbatim) into `<head>`, replacing `YOUR_WRITE_KEY` and `YOUR_INGESTION_HOST`. It queues calls until the bundle loads and sends the first page view itself. If you do not need to call the SDK before it has loaded, a plain tag also works — the bundle auto-initialises from its `data-*` attributes:
+**CDN**: Fastest setup, no build required. Paste the loader snippet from the [browser SDK README](../packages/browser/README.md#script-tag-cdn) (it is `packages/browser/src/cdn/snippet.html`, verbatim) into `<head>`, replacing `YOUR_WRITE_KEY` and `YOUR_INGESTION_HOST`. It queues calls until the bundle loads and sends the first page view itself. If you do not need to call the SDK before it has loaded, a plain tag also works: the bundle auto-initialises from its `data-*` attributes:
 
 ```html
 <script
   async
-  src="https://cdn.sfere.io/sdk/v0.1/sfere.min.js"
+  src="https://cdn.sfere.io/sdk/v0.4/sfere.min.js"
   data-write-key="keyId:secret"
   data-host="https://ingest.example.com"
 ></script>
 ```
 
-`/sdk/v0.1/` is the alias URL (latest 0.1.x). If the snippet goes somewhere you can never edit again (an app-store app, a published tag template), use `https://cdn.sfere.io/sdk/latest/sfere.min.js` instead: it follows every stable release, majors included. For an SRI-pinned production page use the immutable URL `/sdk/v0.1.0/sfere.min.js` with the hash from its `manifest.json` — see [CDN-POLICY.md](CDN-POLICY.md).
+`/sdk/v0.4/` is the alias URL (latest 0.4.x). If the snippet goes somewhere you can never edit again (an app-store app, a published tag template), use `https://cdn.sfere.io/sdk/latest/sfere.min.js` instead: it follows every stable release, majors included. For an SRI-pinned production page use the immutable URL of a released version, `/sdk/v0.4.X/sfere.min.js` (for example `/sdk/v0.4.1/sfere.min.js`), with the hash from its `manifest.json`. See [CDN-POLICY.md](CDN-POLICY.md).
 
-**npm**: Better for single-page apps and teams using a bundler (webpack, Vite, etc.). Allows you to import directly in your framework.
+**npm**: Better for single-page apps and teams using a bundler (webpack, Vite, etc.). Allows you to import directly in your framework. Install it from the public npm registry; no token or `.npmrc` setup is needed:
+
+```bash
+npm install @sfere-io/sfere-sdk
+```
 
 ## Content Security Policy (CSP)
 
@@ -40,7 +46,7 @@ Content-Security-Policy: default-src 'self'; script-src 'self' cdn.sfere.io; con
 If you use a nonce, put it on the inline loader snippet (`<script nonce="…">`) and keep `cdn.sfere.io` in `script-src` (or use `'strict-dynamic'`, which lets the nonced snippet's injected script load). With the plain-tag form above, the nonce goes on that tag:
 
 ```html
-<script nonce="abc123" async src="https://cdn.sfere.io/sdk/v0.1/sfere.min.js" data-write-key="…" data-host="…"></script>
+<script nonce="abc123" async src="https://cdn.sfere.io/sdk/v0.4/sfere.min.js" data-write-key="…" data-host="…"></script>
 ```
 
 ## Single-page app: page views
