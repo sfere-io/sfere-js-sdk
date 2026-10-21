@@ -1,5 +1,11 @@
 # @sfere-io/sfere-node
 
+## 0.2.2
+
+### Patch Changes
+
+- a7f82b1: Published to the public npm registry; README install steps no longer need a GitHub token.
+
 ## 0.2.1
 
 ### Patch Changes
