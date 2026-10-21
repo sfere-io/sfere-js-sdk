@@ -1,7 +1,7 @@
 # Changesets
 
 This directory manages versioning and changelogs for `@sfere-io/sfere-sdk`
-with [Changesets](https://github.com/changesets/changesets). See
+and `@sfere-io/sfere-node` with [Changesets](https://github.com/changesets/changesets). See
 `../docs/RELEASING.md` for the full release flow; the short version:
 
 1. On a branch with a user-facing change, run:
@@ -21,7 +21,8 @@ with [Changesets](https://github.com/changesets/changesets). See
 3. Once merged, the `release` workflow opens or updates a "Version
    Packages" PR (via `changesets/action`) that bumps `package.json` and
    compiles `CHANGELOG.md` from every pending changeset. Merging that PR
-   is what actually publishes: to GitHub Packages, plus git tags,
+   is what actually publishes: to GitHub Packages and the public npm
+   registry, plus git tags,
    one GitHub release per framework (Browser, React, Node) and the CDN
    deploy. Nothing publishes from a normal PR
    merge.
@@ -33,4 +34,4 @@ changeset's commit is not yet on GitHub, which breaks every local run and
 ties the release job to token scopes for the sake of PR links that the
 GitHub release notes (`generate_release_notes: true`) already provide.
 
-Single-package repo: `fixed` / `linked` are intentionally empty.
+The two packages version independently: `fixed` / `linked` are intentionally empty.

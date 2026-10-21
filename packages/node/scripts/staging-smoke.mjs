@@ -1,7 +1,7 @@
 // Sends a tagged identify + purchase through the BUILT SDK to a real ingestion host and requires
 // the host to accept every event. Run after `npm run build`:
 //
-//   SFERE_WRITE_KEY=<server key> SFERE_HOST=https://console.fanfinity.io npm run smoke:staging
+//   SFERE_WRITE_KEY=<server key> SFERE_HOST=https://<staging ingestion host> npm run smoke:staging
 //
 // The key is read from the environment only. Events carry messageIds `sfere-node-smoke-<run>-*`,
 // an `sfere_smoke: true` property and documentation-range IPs (198.51.100.x), so they are easy to

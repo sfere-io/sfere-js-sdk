@@ -91,7 +91,9 @@ Reuses `ci.yml` in full (`secrets: inherit`) before doing anything else. See
 release, and the call into `cdn-deploy.yml`. Nothing in this workflow has a
 meaningful "run it locally" equivalent — it's inherently a CI-only,
 merge-triggered flow (Changesets needs to compare against `main`'s history,
-and publishing needs the repo's `GITHUB_TOKEN`).
+and publishing needs the repo's `GITHUB_TOKEN`, plus the `NPM_TOKEN` secret
+for the copy on the public npm registry). The npmjs half can be dry-run
+locally: `DRY_RUN=1 scripts/npmjs-publish.sh <name> <version> <tarball>`.
 
 ## `cdn-deploy.yml` — called by `release.yml`, or run by hand
 
@@ -113,8 +115,8 @@ On failure, the `cdn-smoke-report` artifact is uploaded. Run the smoke test agai
 
 ```sh
 npm run build   # global-setup needs dist/
-CDN_SMOKE_URL=https://cdn.sfere.io/sdk/v0.1.0/sfere.min.js \
-CDN_SMOKE_SRI="$(curl -fsS https://cdn.sfere.io/sdk/v0.1.0/manifest.json | node -p 'JSON.parse(require("fs").readFileSync(0)).files.find(f=>f.path.endsWith("sfere.min.js")).sha384')" \
+CDN_SMOKE_URL=https://cdn.sfere.io/sdk/v0.4.1/sfere.min.js \
+CDN_SMOKE_SRI="$(curl -fsS https://cdn.sfere.io/sdk/v0.4.1/manifest.json | node -p 'JSON.parse(require("fs").readFileSync(0)).files.find(f=>f.path.endsWith("sfere.min.js")).sha384')" \
 CDN_SMOKE_VERSION=0.1.0 npx playwright test test/e2e/specs/cdn-smoke.spec.ts
 ```
 

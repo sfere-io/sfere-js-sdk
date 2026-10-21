@@ -3,8 +3,9 @@ name: release
 # Push to main -> full CI gate, then Changesets decides what happens next:
 #   - pending changesets exist  -> open/update the "Version Packages" PR (no publish)
 #   - no pending changesets     -> that PR was just merged: publish to GitHub
-#                                  Packages, tag, cut a GitHub release with the
-#                                  CDN bundles attached, and deploy the CDN.
+#                                  Packages, mirror to registry.npmjs.org, tag,
+#                                  cut a GitHub release with the CDN bundles
+#                                  attached, and deploy the CDN.
 # See docs/RELEASING.md for the developer-facing version of this flow.
 on:
   push:
@@ -30,12 +31,14 @@ jobs:
     permissions:
       contents: write # push the Version PR branch / the release tag
       pull-requests: write # open/update the Version Packages PR
-      packages: write # publish to GitHub Packages
+      packages: write # publish to GitHub Packages (npmjs uses the NPM_TOKEN secret)
     outputs:
       published: ${{ steps.tag.outputs.published }}
       version: ${{ steps.tag.outputs.version }}
       node-published: ${{ steps.tag.outputs.node-published }}
+      npmjs: ${{ steps.tag.outputs.npmjs }}
       node-version: ${{ steps.tag.outputs.node-version }}
+      node-npmjs: ${{ steps.tag.outputs.node-npmjs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -88,11 +91,23 @@ jobs:
       # recovers a run whose later jobs failed: the next push to main tags (and,
       # for the browser SDK, deploys) the missed version.
       #
+      # Each version this run released is also mirrored to the public npm
+      # registry (registry.npmjs.org, public access) by scripts/npmjs-publish.sh,
+      # which republishes the exact tarball downloaded back from GitHub Packages
+      # and downloads the npmjs copy back without a token. Only untagged versions
+      # are mirrored, so versions released before npmjs publishing existed
+      # (sfere-sdk <= 0.4.1, sfere-node <= 0.2.1) are never backfilled. Without
+      # the NPM_TOKEN secret the mirror is skipped with a ::warning:: and the
+      # release continues. Every package is verified and mirrored before any tag
+      # is pushed, so a failed npmjs publish leaves nothing tagged and a re-run
+      # of this job retries it (the script skips a version already on npmjs).
+      #
       # Tags: the browser SDK keeps plain `vX.Y.Z` (cdn-deploy.yml and the
       # GitHub release check it out); every other package gets the Changesets
       # form `<name>@X.Y.Z`. `published`/`version` describe the browser SDK
       # (release artifacts, the React release page and the CDN deploy hang off
       # it); `node-published`/`node-version` drive the Node SDK's release page.
+      # `npmjs`/`node-npmjs` say whether that version is on registry.npmjs.org.
       #
       # Pushed with the GITHUB_TOKEN credentials actions/checkout persisted. A tag
       # pushed by GITHUB_TOKEN never starts other workflows, which is fine: the
@@ -105,8 +120,11 @@ jobs:
           NODE="@sfere-io/sfere-node"
           PUBLISHED=false
           VERSION=""
+          NPMJS=false
           NODE_PUBLISHED=false
           NODE_VERSION=""
+          NODE_NPMJS=false
+          RELEASED=()
           for manifest in packages/*/package.json; do
             if [ "$(node -p "require('./$manifest').private === true")" = "true" ]; then continue; fi
             NAME="$(node -p "require('./$manifest').name")"
@@ -132,23 +150,45 @@ jobs:
               fi
             done
             echo "Registry copy of $NAME@$V contains its dist/ entry points."
+            TARBALL="$SCRATCH/$(node -p "require('$SCRATCH/pack.json')[0].filename")"
+            MIRROR="$(scripts/npmjs-publish.sh "$NAME" "$V" "$TARBALL")"
+            case "$MIRROR" in
+              published) echo "Published $NAME@$V to registry.npmjs.org." >> "$GITHUB_STEP_SUMMARY" ;;
+              exists) echo "$NAME@$V was already on registry.npmjs.org." >> "$GITHUB_STEP_SUMMARY" ;;
+              *) echo "$NAME@$V was NOT published to registry.npmjs.org: the NPM_TOKEN secret is not set." >> "$GITHUB_STEP_SUMMARY" ;;
+            esac
+            RELEASED+=("$NAME|$V|$TAG|$MIRROR")
+          done
+          for entry in "${RELEASED[@]}"; do
+            IFS="|" read -r NAME V TAG MIRROR <<< "$entry"
+            ON_NPMJS=false
+            if [ "$MIRROR" = "published" ] || [ "$MIRROR" = "exists" ]; then ON_NPMJS=true; fi
             git tag "$TAG" HEAD
             git push origin "$TAG"
             echo "Released $NAME@$V as $TAG." >> "$GITHUB_STEP_SUMMARY"
             if [ "$NAME" = "$BROWSER" ]; then
               PUBLISHED=true
               VERSION="$V"
+              NPMJS="$ON_NPMJS"
             elif [ "$NAME" = "$NODE" ]; then
               NODE_PUBLISHED=true
               NODE_VERSION="$V"
+              NODE_NPMJS="$ON_NPMJS"
             fi
           done
           echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "npmjs=$NPMJS" >> "$GITHUB_OUTPUT"
           echo "node-published=$NODE_PUBLISHED" >> "$GITHUB_OUTPUT"
           echo "node-version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "node-npmjs=$NODE_NPMJS" >> "$GITHUB_OUTPUT"
         env:
+          # GitHub Packages reads (npm view / npm pack above) go through the
+          # .npmrc actions/setup-node wrote, with this token.
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # npm automation token for registry.npmjs.org. The script passes it to
+          # npm as NODE_AUTH_TOKEN for the npmjs publish only. Empty = skip.
+          NPM_PUBLISH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   release-artifacts:
     needs: version-or-publish
@@ -189,12 +229,18 @@ jobs:
       - name: Release notes
         env:
           VERSION: ${{ needs.version-or-publish.outputs.version }}
+          ON_NPMJS: ${{ needs.version-or-publish.outputs.npmjs }}
           REPO_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           awk -v heading="## $VERSION" '$0 == heading { found = 1; next } /^## / && found { exit } found' \
             packages/browser/CHANGELOG.md > "$RUNNER_TEMP/browser-changes.md"
+          if [ "$ON_NPMJS" = "true" ]; then
+            WHERE="on npm (registry.npmjs.org, mirrored on GitHub Packages)"
+          else
+            WHERE="on GitHub Packages"
+          fi
           {
-            echo "Browser SDK \`@sfere-io/sfere-sdk@$VERSION\`: npm on GitHub Packages, and the CDN files attached below."
+            echo "Browser SDK \`@sfere-io/sfere-sdk@$VERSION\`: $WHERE, and the CDN files attached below."
             cat "$RUNNER_TEMP/browser-changes.md"
           } > "$RUNNER_TEMP/browser-notes.md"
           {
@@ -249,6 +295,7 @@ jobs:
     env:
       TAG: "@sfere-io/sfere-node@${{ needs.version-or-publish.outputs.node-version }}"
       VERSION: ${{ needs.version-or-publish.outputs.node-version }}
+      ON_NPMJS: ${{ needs.version-or-publish.outputs.node-npmjs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -257,8 +304,13 @@ jobs:
       - name: Release notes
         id: notes
         run: |
+          if [ "$ON_NPMJS" = "true" ]; then
+            WHERE="on npm (registry.npmjs.org, mirrored on GitHub Packages)"
+          else
+            WHERE="on GitHub Packages"
+          fi
           {
-            echo "Node SDK \`@sfere-io/sfere-node@$VERSION\` on GitHub Packages."
+            echo "Node SDK \`@sfere-io/sfere-node@$VERSION\` $WHERE."
             echo
             echo '```sh'
             echo "npm install @sfere-io/sfere-node@$VERSION"

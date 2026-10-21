@@ -174,10 +174,9 @@ alias *back to* on a track that a prerelease never joined.
   connect-src <your ingestion endpoint host>;
   ```
   The second directive is the host your `SfereAnalytics.load({ host })` call
-  points at — it's yours, not `cdn.sfere.io`, and this document doesn't name
-  it because it's per-deployment. (Whatever runs behind it is never to be
-  named in client-facing material — see the root `CLAUDE.md`; this
-  repository never writes vendor names for the ingestion platform.)
+  points at: `events.sfere.io`, or the ingestion host Sfere gave you with
+  your write keys. It is never `cdn.sfere.io`. (This repository never writes
+  vendor names for the ingestion platform in client-facing material.)
 
 ## Availability
 

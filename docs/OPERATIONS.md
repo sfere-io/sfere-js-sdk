@@ -1,40 +1,42 @@
 # Operations: what is live and how to run it
 
-_Internal maintainer runbook. Last verified 2026-09-28. Start here if you are taking over this repo._
+_Internal maintainer runbook. "What is live" last updated 2026-10-21. Start here if you are taking over this repo._
 
 ## What is live
 
 | Thing | Where | State |
 |---|---|---|
-| npm package | `@sfere-io/sfere-sdk` on GitHub Packages (visibility follows the repo) | **0.1.0** published |
-| Git tag + GitHub release | `v0.1.0`, with `sfere.min.js`, `sfere.js` and `manifest.json` attached | done |
-| CDN, immutable | `https://cdn.sfere.io/sdk/v0.1.0/sfere.min.js` | live, `Cache-Control: public, max-age=31536000, immutable` |
-| CDN, alias | `https://cdn.sfere.io/sdk/v0.1/sfere.min.js` | live, `Cache-Control: public, max-age=300, stale-while-revalidate=86400` |
+| npm packages, public registry | `@sfere-io/sfere-sdk` and `@sfere-io/sfere-node` on registry.npmjs.org, public, no token to install | starts with the next release (`sfere-sdk` 0.4.2, `sfere-node` 0.2.2). Needs the `sfere-io` npm organisation and the `NPM_TOKEN` secret ([RELEASING.md](RELEASING.md#publishing-to-the-public-npm-registry)) |
+| npm packages, GitHub Packages | the same two packages on npm.pkg.github.com, a mirror for maintainers (installing from it needs a token with `read:packages`, even though the repo is public) | `sfere-sdk` **0.4.1**, `sfere-node` **0.2.1** |
+| Git tags + GitHub releases | `v0.4.1` (Browser SDK, with `sfere.min.js`, `sfere.js` and `manifest.json` attached), `react-v0.4.1`, `@sfere-io/sfere-node@0.2.1` | done |
+| CDN, immutable | `https://cdn.sfere.io/sdk/v0.4.1/sfere.min.js` (one path per released version, `v0.4.X`) | live, `Cache-Control: public, max-age=31536000, immutable` |
+| CDN, alias | `https://cdn.sfere.io/sdk/v0.4/sfere.min.js` (latest 0.4.x) | live, `Cache-Control: public, max-age=300, stale-while-revalidate=86400` |
 | CDN, latest | `https://cdn.sfere.io/sdk/latest/sfere.min.js` | newest stable release across all lines; for embeds nobody can edit. Same caching as an alias ([CDN-POLICY.md](CDN-POLICY.md#the-latest-channel-embeds-you-can-never-edit)) |
+| Event ingestion | `https://events.sfere.io` | production host |
 | SonarQube Cloud | project `fanfinity_sfere-sdk` (org `sfere-io`) | quality gate passing on `main` |
 
 **Verified end to end on 2026-09-28:**
-- A page loaded the SDK from `cdn.sfere.io`, and the staging ingestion endpoint (`console.fanfinity.io`) answered `{"ok":true}` for page, identify and track.
+- A page loaded the SDK from `cdn.sfere.io`, and a staging ingestion endpoint answered `{"ok":true}` for page, identify and track.
 - The events carried `context.clientIds`, `context.campaign` and the Sfere `context.library`.
 - No request went to any third-party host.
 
-Production ingestion (`console.sfere.io`) has **not** received SDK traffic yet. Use a production write key from the Sfere console when onboarding the first site.
+Use a production write key from the Sfere console, with the host `https://events.sfere.io`, when onboarding a site.
 
 ## Everyday work
 
 1. **Change code:** branch, then open a PR. CI runs typecheck, lint, unit tests, e2e, size, verify and Sonar.
 2. **Anything user-facing needs a changeset:** `npm run changeset` (patch / minor / major plus a one-line summary).
 3. **Merge to `main`:** `release.yml` opens or updates the **"chore: version packages"** PR.
-4. **Merge that PR to ship.** This one merge publishes to GitHub Packages, tags each package, creates the Browser, React and Node GitHub releases for what shipped, and deploys the CDN. Details: [RELEASING.md](RELEASING.md).
+4. **Merge that PR to ship.** This one merge publishes to GitHub Packages and the public npm registry, tags each package, creates the Browser, React and Node GitHub releases for what shipped, and deploys the CDN. Details: [RELEASING.md](RELEASING.md).
 
 ### Manual CDN deploy or rollback
 
 ```sh
-# re-deploy a released version (the input is the bare version: 0.1.0, not v0.1.0)
-gh workflow run cdn-deploy.yml -R sfere-io/sfere-sdk --ref main -f version=0.1.0
+# re-deploy a released version (the input is the bare version: 0.4.1, not v0.4.1)
+gh workflow run cdn-deploy.yml -R sfere-io/sfere-js-sdk --ref main -f version=0.4.1
 
 # roll the alias back to a known-good version (never touches immutable files)
-gh workflow run cdn-deploy.yml -R sfere-io/sfere-sdk --ref main -f version=0.1.0 -f alias_only=true
+gh workflow run cdn-deploy.yml -R sfere-io/sfere-js-sdk --ref main -f version=0.4.1 -f alias_only=true
 ```
 
 A full deploy of an already-deployed version fails by design: immutable files are write-once. Use `alias_only=true` for rollbacks.
@@ -42,7 +44,7 @@ A full deploy of an already-deployed version fails by design: immutable files ar
 `/sdk/latest/` follows on its own: forward on every newer stable release, and back on a rollback while it is on that line. To roll it back across lines (a bad new minor or major), add `-f force_latest=true`:
 
 ```sh
-gh workflow run cdn-deploy.yml -R sfere-io/sfere-sdk --ref main -f version=0.3.2 -f alias_only=true -f force_latest=true
+gh workflow run cdn-deploy.yml -R sfere-io/sfere-js-sdk --ref main -f version=0.3.2 -f alias_only=true -f force_latest=true
 ```
 
 ### Before the second release of a new minor line (0.2.x, 0.3.x, …)
@@ -74,7 +76,7 @@ If you skip this, the second deploy on that line fails with a 403 on the alias u
 
 ## GitHub repository settings
 
-- **Repository variables:** `WIF_PROVIDER`, `CDN_DEPLOY_SA`, `GCP_PROJECT_ID`, `CDN_BUCKET`, `CDN_BASE_URL`, all set. Secret: `SONAR_TOKEN`, set.
+- **Repository variables:** `WIF_PROVIDER`, `CDN_DEPLOY_SA`, `GCP_PROJECT_ID`, `CDN_BUCKET`, `CDN_BASE_URL`, all set. Secrets: `SONAR_TOKEN`, set; `NPM_TOKEN` (publishing to registry.npmjs.org), required before the next release, see [RELEASING.md](RELEASING.md#publishing-to-the-public-npm-registry).
 - **`cdn-production` environment:** deployments only from `main`. It has **no required reviewer**, because the organisation's GitHub plan does not offer required reviewers on private repos. Anyone who can merge to `main`, or dispatch the workflow on `main`, can deploy the CDN.
 - **Allow GitHub Actions to create and approve pull requests:** on, both at the organisation level and on this repo. The Version Packages PR needs it.
 - **Dependabot:**

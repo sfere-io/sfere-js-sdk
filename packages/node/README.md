@@ -2,7 +2,7 @@
 
 Send first-party fan events to Sfere from your server: purchases, refunds, sign-ups, and anything else your backend knows about. Each event carries the end user's IP, user agent and ad click IDs taken from their request, so server-side conversions match on ad platforms as well as browser events do.
 
-> **Status:** `@sfere-io/sfere-node` on GitHub Packages. Node.js 20+. ESM and CommonJS.
+> **Status:** the 0.2 line, on the public npm registry from 0.2.2 (no token needed). Node.js 20+. ESM and CommonJS.
 
 ## Install
 
@@ -10,12 +10,7 @@ Send first-party fan events to Sfere from your server: purchases, refunds, sign-
 npm install @sfere-io/sfere-node
 ```
 
-The package is on GitHub Packages. Create a token with the `read:packages` scope, then add to your `.npmrc`:
-
-```
-@sfere-io:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=<YOUR_TOKEN>
-```
+The package is on the public npm registry, so no token or `.npmrc` setup is needed.
 
 ## Quick start
 

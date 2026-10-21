@@ -6,7 +6,7 @@ _Internal. Written 2026-09-28 from the research in `../sfere-sdk-research/` (`sd
 
 - **`@segment/analytics-next` 1.84.3 used unmodified, as an npm dependency** (MIT, not a fork), plus a Sfere **enrichment plugin** and a thin `load()` wrapper holding the settings that make it talk to our ingestion endpoint.
 - **Two distributions from one source:**
-  - npm package `@sfere-io/sfere-sdk` (ESM + CJS + types), on GitHub Packages;
+  - npm package `@sfere-io/sfere-sdk` (ESM + CJS + types), on the public npm registry (from 0.4.2) and GitHub Packages;
   - a single-file IIFE bundle for a `<script>` tag, served from our CDN (`https://cdn.sfere.io/sdk/…`). See `docs/CDN-POLICY.md`.
 
 ## Decisions this code must respect (founder, 2026-09-28)
