@@ -209,12 +209,15 @@ what's actually being served:
 | `CDN_BASE_URL` | repo variable | `cdn-deploy.yml` | `https://cdn.sfere.io`. Optional — the post-deploy smoke test is skipped (not failed) when unset. |
 | `cdn-production` | GitHub Environment | `cdn-deploy.yml` (`deploy` job) | Deployments only from `main`. No required reviewer (not available on the organisation's plan for private repos), see `CDN-POLICY.md` "Who approves". |
 | `GITHUB_TOKEN` | built-in | `release.yml` | Used as `NODE_AUTH_TOKEN` to publish to and read from GitHub Packages, by `changesets/action` (its default token) for the Version Packages PR, and for the tag push / GitHub release. No manual setup. |
-| `NPM_TOKEN` | secret | `release.yml` (tag step, via `scripts/npmjs-publish.sh`) | npm token that can publish to the `@sfere-io` scope on registry.npmjs.org. Optional for the workflow (the npmjs publish is skipped with a warning when unset), required for users to get the release without a token. See below. |
+| `NPM_TOKEN` | secret | `release.yml` (tag step, via `scripts/npmjs-publish.sh`) | **Being retired.** npm token for registry.npmjs.org, used only while it is set. Delete it once a release has been published through Trusted Publishing, see [Trusted Publishing](#trusted-publishing). |
+| Trusted publisher | npmjs.com package setting | `release.yml` (`version-or-publish` job, `id-token: write`) | One entry on each of `@sfere-io/sfere-sdk` and `@sfere-io/sfere-node`. Replaces `NPM_TOKEN`; nothing to store in GitHub. See [Trusted Publishing](#trusted-publishing). |
 
-All of the above except `NPM_TOKEN` were set on the repository (then
+All of the above except the npm entries were set on the repository (then
 `sfere-io/sfere-sdk`, now `sfere-io/sfere-js-sdk`) on 2026-09-28, and the CDN
 infrastructure is provisioned. Current values and resource names are in
-`OPERATIONS.md`.
+`OPERATIONS.md`. `NPM_TOKEN` was added on 2026-10-21, but its token asks for a
+one-time password, so the 0.4.2 / 0.2.2 release failed on the npmjs publish
+with `EOTP` (see [First publish by hand](#first-publish-by-hand)).
 
 ## Publishing to the public npm registry
 
@@ -230,18 +233,78 @@ are not copied there.
 
 1. Create the npm organisation **`sfere-io`** on npmjs.com (it owns the
    `@sfere-io` scope; the free plan allows unlimited public packages).
-2. Create a token that can publish to that scope without a one-time password:
-   a classic **Automation** token, or a **granular access token** with
-   read and write permission on the `@sfere-io` scope (or on the two packages
-   once they exist) and "bypass two-factor authentication" allowed. A token
-   that needs an OTP fails the release with an `EOTP` error.
-3. Add it as the repository secret **`NPM_TOKEN`** on `sfere-io/sfere-js-sdk`
-   (Settings → Secrets and variables → Actions). Granular tokens expire, so
-   note the expiry date and rotate it before then.
+2. Publish the first version of each package by hand, because a trusted
+   publisher can only be added to a package that already exists on npmjs:
+   [First publish by hand](#first-publish-by-hand).
+3. Add a trusted publisher to both packages:
+   [Trusted Publishing](#trusted-publishing).
 
-Trusted publishing (OIDC, no stored token) cannot create a package that does
-not exist yet. Once 0.4.2 and 0.2.2 are on npmjs it can be configured per
-package, and the token retired.
+### Trusted Publishing
+
+The release publishes to npmjs with
+[npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers): no npm
+token is stored in GitHub. The `version-or-publish` job in `release.yml` has
+`permissions: id-token: write` and installs npm 11.21.0 (Trusted Publishing
+needs npm 11.5.1 or newer and Node 22.14.0 or newer; the Node 22 from `.nvmrc`
+ships npm 10). `npm publish` then exchanges the job's GitHub OIDC token for a
+short-lived token that can publish only that package, and attaches provenance
+because the repository and the packages are public. Trusted Publishing works
+only on GitHub-hosted runners.
+
+**Setup, once per package** (`@sfere-io/sfere-sdk` and `@sfere-io/sfere-node`),
+by an owner of the `sfere-io` npm organisation:
+
+1. On npmjs.com open the package, then **Settings** → **Trusted Publisher**.
+   Under "Select your publisher", click **GitHub Actions**.
+2. Fill in the fields exactly as below. They are case-sensitive.
+
+   | Field | Value |
+   |---|---|
+   | Organization or user | `sfere-io` |
+   | Repository | `sfere-js-sdk` |
+   | Workflow filename | `release.yml` (the file name only, no path) |
+   | Environment name | leave empty: `version-or-publish` runs without a GitHub environment |
+   | Allowed actions | allow `npm publish` (direct publishing). The script runs `npm publish`, not `npm stage publish`. |
+
+3. Save. npm does not check the entry when it is saved; a mistake only shows
+   up at the next publish.
+
+The same entry from a terminal (npm 11.21.0 or newer, logged in to npmjs with
+two-factor authentication; it asks for a one-time password):
+
+```sh
+npm trust github @sfere-io/sfere-sdk --file release.yml --repository sfere-io/sfere-js-sdk --allow-publish \
+  --registry https://registry.npmjs.org/ --@sfere-io:registry=https://registry.npmjs.org/
+npm trust github @sfere-io/sfere-node --file release.yml --repository sfere-io/sfere-js-sdk --allow-publish \
+  --registry https://registry.npmjs.org/ --@sfere-io:registry=https://registry.npmjs.org/
+```
+
+**Timing.** A new trusted publisher entry expires if no publish uses it within
+2 days, and an expired entry cannot be edited: delete it and add it again. So
+add the entries shortly before merging a Version Packages PR, which is the
+only thing that publishes.
+
+**While `NPM_TOKEN` still exists.** The script uses the token when the secret
+is set. With `id-token: write` granted, npm still tries the OIDC exchange
+first and uses the exchanged token whenever a trusted publisher matches, so the
+token is only a fallback. Without `NPM_TOKEN`, a package that has no matching
+trusted publisher fails the tag step before anything is tagged, with an
+`::error::` that lists the expected npmjs.com values; fix the entry and re-run
+the job.
+
+**After the first release published through Trusted Publishing** (its version
+page on npmjs.com shows provenance):
+
+1. Delete the `NPM_TOKEN` repository secret (Settings → Secrets and variables
+   → Actions) and remove the `NPM_PUBLISH_TOKEN` line from `release.yml`.
+2. Revoke that token on npmjs.com (your avatar → **Access Tokens**).
+3. Optional, recommended by npm: on each package, **Settings** →
+   **Publishing access** → "Require two-factor authentication and disallow
+   tokens", then **Update Package Settings**. Trusted Publishing keeps working,
+   because it does not use a token.
+
+npm is phasing out tokens that bypass two-factor authentication for
+publishing, so this is the publishing path to keep.
 
 ### What the release does
 
@@ -249,13 +312,20 @@ In `release.yml`'s "Tag the published versions" step, for each version that run
 released (every public package whose tag does not exist yet; `sfere-shared` is
 private and never published), `scripts/npmjs-publish.sh`:
 
-1. Skips with a `::warning::` (the release continues) if `NPM_TOKEN` is not
-   set. npmjs is not contacted at all then.
+1. Picks its credentials: the `NPM_TOKEN` secret while it is set, otherwise
+   [Trusted Publishing](#trusted-publishing) with the job's OIDC token. With
+   neither (outside GitHub Actions, or a job without `id-token: write`) it
+   skips with a `::warning::` and the release continues; npmjs is not
+   contacted at all then.
 2. Skips the version if it is already on npmjs, so a re-run is safe.
+   With Trusted Publishing it then requires npm 11.5.1 or newer.
 3. Publishes the tarball it just downloaded back from GitHub Packages,
    unchanged, so both registries serve the same bytes. It first runs the
    publish as a dry run and refuses unless npm reports
-   `Publishing to https://registry.npmjs.org/ … public access`.
+   `Publishing to https://registry.npmjs.org/ … public access`. With Trusted
+   Publishing the dry run already performs the OIDC exchange, and the script
+   stops there with an `::error::` if npm reports it is not logged in (no
+   matching trusted publisher).
 4. Downloads the version back from npmjs with no token, retrying while
    npmjs catches up, and fails unless it contains `dist/index.js`,
    `dist/index.cjs` and `dist/index.d.ts`.
@@ -273,12 +343,49 @@ line that `actions/setup-node` writes overrides even `--registry`, for
 npm 10 and 11). So the script gives every npmjs call its own userconfig plus
 `--registry` and `--@sfere-io:registry` flags.
 
-### A release that shipped without the token
+### First publish by hand
 
-Versions released while `NPM_TOKEN` was missing are tagged, so later runs do
-not retry them. Publish such a version by hand once the token exists, with a
-GitHub token (`read:packages`) configured for npm.pkg.github.com and the npm
-token in `NPM_PUBLISH_TOKEN`:
+A trusted publisher can only be added to a package that exists on npmjs, so
+the first version of each package is published from a terminal by an owner of
+the `sfere-io` npm organisation. As of 2026-10-21 neither package is on npmjs:
+`@sfere-io/sfere-sdk` 0.4.2 and `@sfere-io/sfere-node` 0.2.2 are on GitHub
+Packages but untagged, because the npmjs publish of that release failed.
+
+With a GitHub token (`read:packages`) configured for npm.pkg.github.com,
+download the exact GitHub Packages tarballs, then publish them with a
+dedicated npm config that holds only the npmjs login:
+
+```sh
+npm pack @sfere-io/sfere-sdk@0.4.2 --@sfere-io:registry=https://npm.pkg.github.com
+npm pack @sfere-io/sfere-node@0.2.2 --@sfere-io:registry=https://npm.pkg.github.com
+
+printf 'registry=https://registry.npmjs.org/\n@sfere-io:registry=https://registry.npmjs.org/\n' > npmjs.npmrc
+npm login --userconfig ./npmjs.npmrc --registry https://registry.npmjs.org/
+
+for tgz in sfere-io-sfere-sdk-0.4.2.tgz sfere-io-sfere-node-0.2.2.tgz; do
+  npm publish "$tgz" --userconfig ./npmjs.npmrc --registry https://registry.npmjs.org/ \
+    --@sfere-io:registry=https://registry.npmjs.org/ --access public --tag latest --ignore-scripts --dry-run
+done
+```
+
+Each dry run must print
+`Publishing to https://registry.npmjs.org/ with tag latest and public access (dry-run)`.
+Then run the same `npm publish` lines without `--dry-run` (npm asks for a
+one-time password), and finish with
+`npm logout --userconfig ./npmjs.npmrc --registry https://registry.npmjs.org/`
+and `rm npmjs.npmrc`. The next push to `main` finds both versions on npmjs
+(`exists`), tags them, and cuts their GitHub releases and CDN deploy.
+
+Alternatively, replace `NPM_TOKEN` with a token that publishes without a
+one-time password and re-run the failed release job.
+
+### A version that was released without the npmjs copy
+
+Versions whose npmjs publish was skipped are tagged, so later runs do not
+retry them. Publish such a version by hand with the
+[First publish by hand](#first-publish-by-hand) commands, or with the script
+and an npm token in `NPM_PUBLISH_TOKEN` (plus a GitHub token with
+`read:packages` configured for npm.pkg.github.com):
 
 ```sh
 npm pack @sfere-io/sfere-sdk@<version> --@sfere-io:registry=https://npm.pkg.github.com

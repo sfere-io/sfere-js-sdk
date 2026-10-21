@@ -91,9 +91,10 @@ Reuses `ci.yml` in full (`secrets: inherit`) before doing anything else. See
 release, and the call into `cdn-deploy.yml`. Nothing in this workflow has a
 meaningful "run it locally" equivalent — it's inherently a CI-only,
 merge-triggered flow (Changesets needs to compare against `main`'s history,
-and publishing needs the repo's `GITHUB_TOKEN`, plus the `NPM_TOKEN` secret
-for the copy on the public npm registry). The npmjs half can be dry-run
-locally: `DRY_RUN=1 scripts/npmjs-publish.sh <name> <version> <tarball>`.
+and publishing needs the repo's `GITHUB_TOKEN`, plus npm Trusted Publishing
+through the job's OIDC token, or the transitional `NPM_TOKEN` secret, for the
+copy on the public npm registry). The npmjs half can be dry-run locally with
+a token: `NPM_PUBLISH_TOKEN=<token> DRY_RUN=1 scripts/npmjs-publish.sh <name> <version> <tarball>`.
 
 ## `cdn-deploy.yml` — called by `release.yml`, or run by hand
 
