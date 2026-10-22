@@ -1,10 +1,11 @@
-# @sfere-io/sfere-node
+# @sfere.io/sfere-node
 
 ## 0.2.2
 
 ### Patch Changes
 
 - a7f82b1: Published to the public npm registry; README install steps no longer need a GitHub token.
+- The package moved from `@sfere-io/sfere-node` to `@sfere.io/sfere-node`, and is published to the public npm registry only; GitHub Packages is retired. Install the new name and update your imports. Events now carry `context.library.name: "@sfere.io/sfere-node"` (was `"@sfere-io/sfere-node"`); anything that filters on that value must accept both. The API is unchanged.
 
 ## 0.2.1
 

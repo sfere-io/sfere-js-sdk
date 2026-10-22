@@ -1,5 +1,5 @@
 {
-  "name": "@sfere-io/sfere-node",
+  "name": "@sfere.io/sfere-node",
   "version": "0.2.2",
   "description": "Sfere server SDK for Node.js: server-to-server event collection that forwards the end user's IP, user agent and ad click IDs",
   "license": "MIT",
@@ -32,7 +32,8 @@
   ],
   "sideEffects": false,
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "engines": {
     "node": ">=20"
@@ -52,7 +53,7 @@
     "@segment/analytics-node": "3.1.0"
   },
   "devDependencies": {
-    "@sfere-io/sfere-shared": "0.0.0",
+    "@sfere.io/sfere-shared": "0.0.0",
     "@types/node": "^26.6.5",
     "@vitest/coverage-v8": "^5.0.5",
     "tsup": "^8.5.1",

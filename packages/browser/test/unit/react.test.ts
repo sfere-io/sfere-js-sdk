@@ -42,7 +42,7 @@ describe("react bindings", () => {
     expect(body?.event).toBe("view_item");
     // Sfere's library fields stay; the React binding is added beside them.
     expect((body?.context as { library: Record<string, unknown> }).library).toMatchObject({
-      name: "@sfere-io/sfere-sdk",
+      name: "@sfere.io/sfere-sdk",
       binding: "react",
     });
   });

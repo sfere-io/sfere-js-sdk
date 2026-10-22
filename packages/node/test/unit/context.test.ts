@@ -159,7 +159,7 @@ describe("wire shaping", () => {
     expect(out).not.toHaveProperty("integrations");
     expect(out.context).toMatchObject({
       ip: "1.2.3.4",
-      library: { name: "@sfere-io/sfere-node" },
+      library: { name: "@sfere.io/sfere-node" },
     });
   });
 

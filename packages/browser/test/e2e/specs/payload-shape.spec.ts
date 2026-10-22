@@ -27,7 +27,7 @@ test("payload shape: no _metadata, no integrations unless set, library/messageId
 
   const context = asRecord(body.context);
   const library = asRecord(context.library);
-  expect(library.name).toBe("@sfere-io/sfere-sdk");
+  expect(library.name).toBe("@sfere.io/sfere-sdk");
   expect(String(library.version)).toMatch(/^\d+\.\d+\.\d+/);
   expect(String(library.base)).toMatch(/^analytics-next@\d+\.\d+\.\d+/);
 

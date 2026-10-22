@@ -86,7 +86,7 @@ for (const mode of ["dev", "prod"] as const) {
         expect(body).not.toHaveProperty("_metadata");
         expect(body).not.toHaveProperty("integrations");
         const context = asRecord(body.context);
-        expect(asRecord(context.library)).toMatchObject({ name: "@sfere-io/sfere-sdk", binding: "react" });
+        expect(asRecord(context.library)).toMatchObject({ name: "@sfere.io/sfere-sdk", binding: "react" });
         // Landing click ID persists across the client-side navigation.
         expect(asRecord(context.clientIds).gclid).toBe("E2E_GCLID");
         expect(typeof asRecord(context.session).id).toBe("number");

@@ -49,7 +49,7 @@ export default async function globalSetup(): Promise<void> {
   });
 
   // The React harness (site/react.html) is built from the **packed tarball**, installed the way a
-  // client installs it: `npm pack` -> extract into .tmp/consumer/node_modules/@sfere-io/sfere-sdk.
+  // client installs it: `npm pack` -> extract into .tmp/consumer/node_modules/@sfere.io/sfere-sdk.
   // So a file missing from package.json "files", a broken "exports" map, or a dist/react.js that
   // bundles a second copy of the SDK fails here rather than in a client's build. The consumer's
   // other dependencies (react, analytics-next) resolve from the repo's node_modules above it.
@@ -57,7 +57,7 @@ export default async function globalSetup(): Promise<void> {
     throw new Error(`test/e2e/global-setup.ts: ${distReact} is missing. Run \`npm run build\` first.`);
   }
   const consumerDir = resolve(tmpDir, "consumer");
-  const installed = resolve(consumerDir, "node_modules", "@sfere-io", "sfere-sdk");
+  const installed = resolve(consumerDir, "node_modules", "@sfere.io", "sfere-sdk");
   rmSync(consumerDir, { recursive: true, force: true });
   mkdirSync(installed, { recursive: true });
   const packed = JSON.parse(
@@ -69,7 +69,7 @@ export default async function globalSetup(): Promise<void> {
   ) as { filename: string }[];
   execFileSync("tar", ["xzf", resolve(consumerDir, packed[0]!.filename), "-C", installed, "--strip-components=1"]);
   // Its own package scope: without a package.json here, resolvers treat the app as part of the
-  // repo package and resolve "@sfere-io/sfere-sdk" to the repo's own dist (self-reference).
+  // repo package and resolve "@sfere.io/sfere-sdk" to the repo's own dist (self-reference).
   writeFileSync(
     resolve(consumerDir, "package.json"),
     JSON.stringify({ name: "sfere-e2e-consumer", private: true, type: "module" }),
@@ -94,7 +94,7 @@ export default async function globalSetup(): Promise<void> {
       metafile: true,
     }).then((result) => {
       const copies = Object.keys(result.metafile.inputs).filter((input) =>
-        /node_modules\/@sfere-io\/sfere-sdk\/dist\/index\.js$/.test(input),
+        /node_modules\/@sfere\.io\/sfere-sdk\/dist\/index\.js$/.test(input),
       );
       if (copies.length !== 1) {
         throw new Error(

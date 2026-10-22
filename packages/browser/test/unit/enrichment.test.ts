@@ -320,7 +320,7 @@ describe("context.library", () => {
       context: { library: { name: "analytics.js", version: "npm:next-1.84.3" } },
     });
     expect(event.context?.library).toEqual({
-      name: "@sfere-io/sfere-sdk",
+      name: "@sfere.io/sfere-sdk",
       version: expect.stringMatching(/^\d+\.\d+\.\d+/),
       base: expect.stringMatching(/^analytics-next@\d+\.\d+\.\d+/),
     });

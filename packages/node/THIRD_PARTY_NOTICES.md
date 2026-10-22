@@ -1,6 +1,6 @@
 # Third-party notices
 
-The Sfere Node SDK (`@sfere-io/sfere-node`) bundles no third-party code. It depends on
+The Sfere Node SDK (`@sfere.io/sfere-node`) bundles no third-party code. It depends on
 `@segment/analytics-node` at install time, which brings the packages below under their own licenses.
 The list is that dependency tree as installed for this release. Regenerate it when dependencies change.
 

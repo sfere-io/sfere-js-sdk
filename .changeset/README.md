@@ -1,7 +1,7 @@
 # Changesets
 
-This directory manages versioning and changelogs for `@sfere-io/sfere-sdk`
-and `@sfere-io/sfere-node` with [Changesets](https://github.com/changesets/changesets). See
+This directory manages versioning and changelogs for `@sfere.io/sfere-sdk`
+and `@sfere.io/sfere-node` with [Changesets](https://github.com/changesets/changesets). See
 `../docs/RELEASING.md` for the full release flow; the short version:
 
 1. On a branch with a user-facing change, run:
@@ -21,11 +21,10 @@ and `@sfere-io/sfere-node` with [Changesets](https://github.com/changesets/chang
 3. Once merged, the `release` workflow opens or updates a "Version
    Packages" PR (via `changesets/action`) that bumps `package.json` and
    compiles `CHANGELOG.md` from every pending changeset. Merging that PR
-   is what actually publishes: to GitHub Packages and the public npm
-   registry, plus git tags,
-   one GitHub release per framework (Browser, React, Node) and the CDN
-   deploy. Nothing publishes from a normal PR
-   merge.
+   stages the new versions on the public npm registry. Once a maintainer
+   approves them and runs the `release` workflow again, that run creates the
+   git tags, one GitHub release per framework (Browser, React, Node) and the
+   CDN deploy. Nothing is staged from a normal PR merge.
 
 The changelog generator is the built-in `@changesets/cli/changelog` (plain
 entries, no network). `@changesets/changelog-github` was tried and dropped:

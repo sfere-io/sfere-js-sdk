@@ -236,7 +236,7 @@ describe("blocked storage: the persistence probe", () => {
       expect(context.userAgent).toEqual(expect.any(String));
       expect(context.campaign).toEqual({ source: "meta", name: "spring" });
       expect(context.library).toEqual({
-        name: "@sfere-io/sfere-sdk",
+        name: "@sfere.io/sfere-sdk",
         version,
         base: expect.stringMatching(/^analytics-next@\d+\.\d+\.\d+/),
       });
