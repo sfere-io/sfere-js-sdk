@@ -92,8 +92,11 @@ starting the finishing run are the only manual actions.
 
 ### Approving a staged release
 
-Approving needs an account in the `sfere.io` npm organisation with 2FA (a
-security key works). From a terminal (npm 11.21.0 or newer):
+Approving needs an npm account with **write access to the package** and 2FA
+(a security key works). As of 2026-10-22 that is `m.abumusa` (owner of the
+`sfere.io` npm organisation) and `anas-alhalabi-sfere` (write access through
+the org's `developers` team), on both packages. Anyone who can approve can
+also reject, so keep that team small. From a terminal (npm 11.21.0 or newer):
 
 ```sh
 npm stage list @sfere.io/sfere-sdk        # shows the stage id of each pending version
@@ -324,9 +327,10 @@ add the entries shortly before merging a Version Packages PR, which is the
 only thing that stages.
 
 Then, recommended by npm: on each package, **Settings** → **Publishing
-access** → "Require two-factor authentication and disallow tokens", then
-**Update Package Settings**. Staging through Trusted Publishing keeps working,
-because it does not use a token, and approval always needs 2FA.
+access** → "Require two-factor authentication and disallow bypass 2fa tokens
+(recommended)", then **Update Package Settings**. npm states that trusted
+publishers keep working whichever option is selected, so staging is
+unaffected, and approval always needs 2FA.
 
 ### First publish by hand
 
