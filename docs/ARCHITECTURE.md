@@ -6,7 +6,7 @@ _Internal. Written 2026-09-28 from the research in `../sfere-sdk-research/` (`sd
 
 - **`@segment/analytics-next` 1.84.3 used unmodified, as an npm dependency** (MIT, not a fork), plus a Sfere **enrichment plugin** and a thin `load()` wrapper holding the settings that make it talk to our ingestion endpoint.
 - **Two distributions from one source:**
-  - npm package `@sfere-io/sfere-sdk` (ESM + CJS + types), on the public npm registry (from 0.4.2) and GitHub Packages;
+  - npm package `@sfere.io/sfere-sdk` (ESM + CJS + types), on the public npm registry (from 0.4.2);
   - a single-file IIFE bundle for a `<script>` tag, served from our CDN (`https://cdn.sfere.io/sdk/…`). See `docs/CDN-POLICY.md`.
 
 ## Decisions this code must respect (founder, 2026-09-28)
@@ -24,7 +24,7 @@ _Internal. Written 2026-09-28 from the research in `../sfere-sdk-research/` (`sd
 ## Public API (the contract every agent builds against)
 
 ```ts
-import { SfereAnalytics, sfereEnrichment } from "@sfere-io/sfere-sdk";
+import { SfereAnalytics, sfereEnrichment } from "@sfere.io/sfere-sdk";
 
 const sfere = SfereAnalytics.load({
   writeKey: "keyId:secret",               // required, the public browser key
@@ -44,7 +44,7 @@ sfere.setConsent({ advertising: true, analytics: true }); // updates context.con
 - `SfereAnalytics.load` returns the `AnalyticsBrowser` from analytics-next, extended with `setConsent`.
 - `sfereEnrichment(options)` is exported for teams that call `AnalyticsBrowser.load` themselves.
 
-### React bindings (`@sfere-io/sfere-sdk/react`, `src/react.ts`), added 2026-09-29
+### React bindings (`@sfere.io/sfere-sdk/react`, `src/react.ts`), added 2026-09-29
 
 - `SfereProvider`, `useSfere()`, `usePageTracking(routeKey, options?)`. React `>=17 <20` is an optional peer dependency.
 - **A subpath of this package, not a separate package.** This is a deliberate deviation from the SDK-family plan, which proposed `packages/browser` + `packages/react` in Phase 1.
@@ -65,14 +65,14 @@ sfere.setConsent({ advertising: true, analytics: true }); // updates context.con
 **The repo is an npm workspace (since the Node SDK, 2026-09-29):**
 
 ```
-packages/browser        @sfere-io/sfere-sdk    (".", "./react"; the CDN source)
-packages/node           @sfere-io/sfere-node   (wraps analytics-node; must not be a subpath: it would add a Node dependency to every browser install)
+packages/browser        @sfere.io/sfere-sdk    (".", "./react"; the CDN source)
+packages/node           @sfere.io/sfere-node   (wraps analytics-node; must not be a subpath: it would add a Node dependency to every browser install)
 packages/shared         private, source-only, bundled into both: cookie/URL click-ID maps and parsers
-packages/react-native   @sfere-io/sfere-react-native (Phase 3, not yet created)
+packages/react-native   @sfere.io/sfere-react-native (Phase 3, not yet created)
 ```
 
 React stays a subpath of `packages/browser`. Python, Swift and Kotlin get their own repos; the GTM templates are not npm packages. The release pipeline handles several packages:
-- **Tags.** Per-package tags in the changesets form (`@sfere-io/sfere-node@x.y.z`), keeping plain `vX.Y.Z` for the browser package, because `cdn-deploy.yml` checks out `v${version}`.
+- **Tags.** Per-package tags in the changesets form (`@sfere.io/sfere-node@x.y.z`), keeping plain `vX.Y.Z` for the browser package, because `cdn-deploy.yml` checks out `v${version}`.
 - **Tagging step.** The step in `release.yml` loops over every public `packages/*/package.json`.
 - **Rollbacks.** `cdn-deploy.yml` finds the browser package in the checked-out tag (`packages/browser`, or the repo root for v0.3.0 and older), so rolling back to a pre-workspace version still works.
 - **Gating.** `release-artifacts` (the Browser and React release pages) and `cdn-deploy` run only when the browser package was published; `release-node` (the Node release page) only when the Node package was.
@@ -95,7 +95,7 @@ Port of `../sfere-sdk-research/lab/sfere-enrichment.js`, which was proven on the
 | `context.session` | `{ id }`, inactivity rotation (default 30 min), in localStorage `sfere_session` |
 | `context.consent` | `{ categoryPreferences: {…} }` from `setConsent` or the `consent` option; omitted when unset |
 | `context.page.lang` | `document.documentElement.lang`, when set (`locale` reflects the browser, not the page) |
-| `context.library` | `{ name: "@sfere-io/sfere-sdk", version: <sdk version>, base: "analytics-next@<its version>" }`, replacing the base library's own stamp (amended 2026-09-28, review) |
+| `context.library` | `{ name: "@sfere.io/sfere-sdk", version: <sdk version>, base: "analytics-next@<its version>" }`, replacing the base library's own stamp (amended 2026-09-28, review) |
 | `properties.sfere_dedup_id` | on `track` only: kept if the site set it (e.g. the order id); otherwise set to the event's `messageId`. The server-side destinations dedupe on `messageId`, not on this property, so pixels must be given the `messageId` (see INTEGRATION.md#deduplication) |
 
 - **Warehouse width:** the payload must not carry `_metadata`, and it must not carry `integrations` unless the caller set it. Find the analytics-next setting or plugin point that achieves this (read `node_modules/@segment/analytics-next`, e.g. `addBundledMetadata` / the segmentio `normalize`), prove it in a unit test, and record where it happens.

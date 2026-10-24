@@ -14,7 +14,7 @@ const aNext = JSON.parse(
 
 const banner = `/*! Sfere SDK v${pkg.version} | (c) Fanfinity Sports Engagement Solutions Holding Ltd. | MIT License
  * Bundles @segment/analytics-next v${aNext.version} (MIT, (c) Segment.io, Inc.) and its MIT/ISC dependencies.
- * Full license texts: THIRD_PARTY_NOTICES.md in the @sfere-io/sfere-sdk package. */`;
+ * Full license texts: THIRD_PARTY_NOTICES.md in the @sfere.io/sfere-sdk package. */`;
 
 // The React entry bundles nothing third-party: React and the SDK stay external.
 const reactBanner = `/*! Sfere SDK v${pkg.version} React bindings | (c) Fanfinity Sports Engagement Solutions Holding Ltd. | MIT License */`;
@@ -66,7 +66,7 @@ export default defineConfig([
     dts: true,
     sourcemap: true,
     clean: false,
-    external: ["react", "@sfere-io/sfere-sdk"],
+    external: ["react", "@sfere.io/sfere-sdk"],
     define,
     banner: { js: `${reactBanner}\n"use client";` },
     tsconfig: "tsconfig.build.json",

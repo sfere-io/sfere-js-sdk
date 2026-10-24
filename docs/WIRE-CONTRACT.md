@@ -2,7 +2,7 @@
 
 _The source of truth for the browser SDK, the React bindings and the Node server SDK, and the planned Python server, mobile (iOS, Android, React Native) and tag-manager integrations. A new SDK is done when its events match this page. Event names and properties are in [EVENTS.md](EVENTS.md) and are not repeated here._
 
-Status key: **live** = shipped and checked on the wire (for the Server column: `@sfere-io/sfere-node`, verified on staging 2026-09-29). **planned** = required of the SDK that will introduce it. **UNVERIFIED** = not yet tested against the ingestion endpoint.
+Status key: **live** = shipped and checked on the wire (for the Server column: `@sfere.io/sfere-node`, verified on staging 2026-09-29). **planned** = required of the SDK that will introduce it. **UNVERIFIED** = not yet tested against the ingestion endpoint.
 
 ## 1. Endpoints
 
@@ -63,7 +63,7 @@ Standard fields: `type`, `messageId`, `anonymousId`, `userId`, `timestamp`, `con
 | `context.traits` | live: identify traits copied to later events (`carryTraits`) | caller-supplied | planned: same as browser | Plain values (email, phone); never hashed by the SDK |
 | `context.session.id` | live: epoch ms, rotates after 30 min of inactivity | optional: forward the browser's | planned: same rule, app foreground counts as activity | Number |
 | `context.consent.categoryPreferences` | live: `setConsent()` | planned: forwarded from the browser | planned: `setConsent()` | `{ advertising: bool, analytics: bool, … }`; omitted when unknown |
-| `context.library` | live | live | planned | `{ name: "@sfere-io/sfere-<sdk>", version, base: "<underlying library>@<version>" }`. A framework binding adds `binding` (live: `"react"`) and leaves `name` as its SDK's |
+| `context.library` | live | live | planned | `{ name: "@sfere.io/sfere-<sdk>", version, base: "<underlying library>@<version>" }`. A framework binding adds `binding` (live: `"react"`) and leaves `name` as its SDK's |
 | `context.ip`, `context.userAgent` | filled by the ingestion endpoint | **required**, live: `requestContext(req)` forwards the end user's (left-most `X-Forwarded-For`, then `X-Real-IP`, then the socket) | filled by the endpoint / the SDK | Server ingest **keeps whatever `context.ip` the sender sets** and **never fills a missing one**. It records the caller's address separately, as top-level `requestIp`. The CAPI destinations read only `context.ip`, so a server event without it reaches ad platforms with **no IP at all**, and loses that match signal (verified 2026-09-29) |
 | `context.page.url`, `.referrer`, `.lang` | live | live: `requestContext(req)` (`url`, `path`, `search`, `referrer`; `locale` from `Accept-Language`) | n/a | |
 | `context.campaign` | live: `utm_*` + `gad_source`, `gad_campaignid` | live: `requestContext(req)`, from the page URL, else the referrer | planned: from the deep link | |
@@ -89,5 +89,5 @@ Standard fields: `type`, `messageId`, `anonymousId`, `userId`, `timestamp`, `con
 
 ## 7. Naming
 
-- Packages: `@sfere-io/sfere-sdk` (browser, with `/react`), then `@sfere-io/sfere-node`, `sfere-analytics` (Python), `SfereAnalytics` (Swift), `io.sfere:analytics` (Android), `@sfere-io/sfere-react-native`.
+- Packages: `@sfere.io/sfere-sdk` (browser, with `/react`), then `@sfere.io/sfere-node`, `sfere-analytics` (Python), `SfereAnalytics` (Swift), `io.sfere:analytics` (Android), `@sfere.io/sfere-react-native`.
 - Public docs describe the ingestion platform generically. The underlying library names appear only in `THIRD_PARTY_NOTICES.md` and in the `context.library.base` string.

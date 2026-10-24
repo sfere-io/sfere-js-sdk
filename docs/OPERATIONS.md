@@ -6,8 +6,7 @@ _Internal maintainer runbook. "What is live" last updated 2026-10-21. Start here
 
 | Thing | Where | State |
 |---|---|---|
-| npm packages, public registry | `@sfere-io/sfere-sdk` and `@sfere-io/sfere-node` on registry.npmjs.org, public, no token to install | not published yet: the first versions (`sfere-sdk` 0.4.2, `sfere-node` 0.2.2) need a one-time publish by hand, then a trusted publisher on each package ([RELEASING.md](RELEASING.md#trusted-publishing)) |
-| npm packages, GitHub Packages | the same two packages on npm.pkg.github.com, a mirror for maintainers (installing from it needs a token with `read:packages`, even though the repo is public) | `sfere-sdk` **0.4.1**, `sfere-node` **0.2.1** |
+| npm packages, public registry | `@sfere.io/sfere-sdk` and `@sfere.io/sfere-node` on registry.npmjs.org, public, no token to install | not published yet: the first versions (`sfere-sdk` 0.4.2, `sfere-node` 0.2.2) need a one-time publish by hand by a member of the `sfere.io` npm org, then a trusted publisher on each package ([RELEASING.md](RELEASING.md#first-publish-by-hand)). Until 0.4.2 / 0.2.2 the packages were `@sfere-io/*` on GitHub Packages, now retired ([RELEASING.md](RELEASING.md#package-history)) |
 | Git tags + GitHub releases | `v0.4.1` (Browser SDK, with `sfere.min.js`, `sfere.js` and `manifest.json` attached), `react-v0.4.1`, `@sfere-io/sfere-node@0.2.1` | done |
 | CDN, immutable | `https://cdn.sfere.io/sdk/v0.4.1/sfere.min.js` (one path per released version, `v0.4.X`) | live, `Cache-Control: public, max-age=31536000, immutable` |
 | CDN, alias | `https://cdn.sfere.io/sdk/v0.4/sfere.min.js` (latest 0.4.x) | live, `Cache-Control: public, max-age=300, stale-while-revalidate=86400` |
@@ -27,7 +26,8 @@ Use a production write key from the Sfere console, with the host `https://events
 1. **Change code:** branch, then open a PR. CI runs typecheck, lint, unit tests, e2e, size, verify and Sonar.
 2. **Anything user-facing needs a changeset:** `npm run changeset` (patch / minor / major plus a one-line summary).
 3. **Merge to `main`:** `release.yml` opens or updates the **"chore: version packages"** PR.
-4. **Merge that PR to ship.** This one merge publishes to GitHub Packages and the public npm registry, tags each package, creates the Browser, React and Node GitHub releases for what shipped, and deploys the CDN. Details: [RELEASING.md](RELEASING.md).
+4. **Merge that PR.** This stages the new versions on the public npm registry; nothing is installable yet.
+5. **Approve and finish.** `npm stage list @sfere.io/sfere-sdk`, then `npm stage approve <stage-id>` (2FA) for each package, then `gh workflow run release.yml -R sfere-io/sfere-js-sdk --ref main`. That run tags each package, creates the Browser, React and Node GitHub releases for what shipped, and deploys the CDN. Details: [RELEASING.md](RELEASING.md#approving-a-staged-release).
 
 ### Manual CDN deploy or rollback
 
@@ -76,7 +76,7 @@ If you skip this, the second deploy on that line fails with a 403 on the alias u
 
 ## GitHub repository settings
 
-- **Repository variables:** `WIF_PROVIDER`, `CDN_DEPLOY_SA`, `GCP_PROJECT_ID`, `CDN_BUCKET`, `CDN_BASE_URL`, all set. Secrets: `SONAR_TOKEN`, set; `NPM_TOKEN`, set on 2026-10-21 but being retired: publishing to registry.npmjs.org moves to npm Trusted Publishing (no secret), see [RELEASING.md](RELEASING.md#trusted-publishing).
+- **Repository variables:** `WIF_PROVIDER`, `CDN_DEPLOY_SA`, `GCP_PROJECT_ID`, `CDN_BUCKET`, `CDN_BASE_URL`, all set. Secrets: `SONAR_TOKEN`, set. No npm secret: publishing to registry.npmjs.org uses npm Trusted Publishing, see [RELEASING.md](RELEASING.md#trusted-publishing). The `NPM_TOKEN` secret added on 2026-10-21 is unused; delete it.
 - **`cdn-production` environment:** deployments only from `main`. It has **no required reviewer**, because the organisation's GitHub plan does not offer required reviewers on private repos. Anyone who can merge to `main`, or dispatch the workflow on `main`, can deploy the CDN.
 - **Allow GitHub Actions to create and approve pull requests:** on, both at the organisation level and on this repo. The Version Packages PR needs it.
 - **Dependabot:**

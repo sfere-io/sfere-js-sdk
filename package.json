@@ -1,9 +1,17 @@
 {
   "name": "sfere-sdk-workspace",
   "private": true,
-  "description": "Sfere SDKs: browser (@sfere-io/sfere-sdk, with /react), Node (@sfere-io/sfere-node)",
+  "description": "Sfere SDKs: browser (@sfere.io/sfere-sdk, with /react), Node (@sfere.io/sfere-node)",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sfere-io/sfere-js-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sfere-io/sfere-js-sdk/issues"
+  },
+  "homepage": "https://sfere.io/resources/docs/javascript",
   "workspaces": [
     "packages/shared",
     "packages/browser",
@@ -20,13 +28,13 @@
     "test": "npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
-    "size": "npm run size -w @sfere-io/sfere-sdk",
+    "size": "npm run size -w @sfere.io/sfere-sdk",
     "verify": "npm run verify --workspaces --if-present",
-    "cdn:manifest": "npm run cdn:manifest -w @sfere-io/sfere-sdk",
+    "cdn:manifest": "npm run cdn:manifest -w @sfere.io/sfere-sdk",
     "test:e2e": "npm run test:e2e --workspaces --if-present",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "changeset publish --no-git-tag"
+    "release": "scripts/stage-release.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

@@ -50,10 +50,10 @@ for (const file of ["dist/index.js", "dist/index.cjs"]) {
       code.slice(0, 400).includes("@segment/analytics-node"),
     `${file} starts with the Sfere license banner`,
   );
-  check(!code.includes("@sfere-io/sfere-shared"), `${file} inlines the private shared package`);
+  check(!code.includes("@sfere.io/sfere-shared"), `${file} inlines the private shared package`);
 }
 check(
-  !Object.keys({ ...pkg.dependencies, ...pkg.peerDependencies }).includes("@sfere-io/sfere-shared"),
+  !Object.keys({ ...pkg.dependencies, ...pkg.peerDependencies }).includes("@sfere.io/sfere-shared"),
   "the private shared package is not a runtime dependency",
 );
 finish("banner and bundling");

@@ -1,10 +1,10 @@
 // A minimal React app on the built bindings, bundled by global-setup.ts into two variants:
 // development (StrictMode double-renders and double-runs effects) and production (what apps ship).
-// global-setup.ts copies it next to the packed and extracted tarball, so "@sfere-io/sfere-sdk/react"
+// global-setup.ts copies it next to the packed and extracted tarball, so "@sfere.io/sfere-sdk/react"
 // resolves through the published "exports" map and files, exactly as in a client app's bundler.
 import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { SfereProvider, usePageTracking, useSfere } from "@sfere-io/sfere-sdk/react";
+import { SfereProvider, usePageTracking, useSfere } from "@sfere.io/sfere-sdk/react";
 
 type Win = Window & { __reactReady?: boolean; __navigate?: (path: string) => void };
 const win = window as Win;

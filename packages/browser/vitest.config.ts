@@ -19,7 +19,7 @@ export default defineConfig({
     // src/react.ts imports the package by name; tests run it against the source.
     alias: [
       {
-        find: /^@sfere-io\/sfere-sdk$/,
+        find: /^@sfere\.io\/sfere-sdk$/,
         replacement: fileURLToPath(new URL("./src/index.ts", import.meta.url)),
       },
     ],

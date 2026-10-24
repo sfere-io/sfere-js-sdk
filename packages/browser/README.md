@@ -52,15 +52,15 @@ The snippet already sends the first `page()`; call `sfere.page()` yourself only 
 ### npm
 
 ```bash
-npm install @sfere-io/sfere-sdk
+npm install @sfere.io/sfere-sdk
 ```
 
-The package is on the public npm registry, so no token or `.npmrc` setup is needed. React bindings ship in the same package at `@sfere-io/sfere-sdk/react`.
+The package is on the public npm registry, so no token or `.npmrc` setup is needed. React bindings ship in the same package at `@sfere.io/sfere-sdk/react`.
 
 Initialize the SDK:
 
 ```javascript
-import { SfereAnalytics } from "@sfere-io/sfere-sdk";
+import { SfereAnalytics } from "@sfere.io/sfere-sdk";
 
 const sfere = SfereAnalytics.load({
   writeKey: "keyId:secret",
@@ -81,7 +81,7 @@ sfere.track("add_to_cart", {
 ### React and Next.js
 
 ```tsx
-import { SfereProvider, usePageTracking, useSfere } from "@sfere-io/sfere-sdk/react";
+import { SfereProvider, usePageTracking, useSfere } from "@sfere.io/sfere-sdk/react";
 
 <SfereProvider writeKey="keyId:secret" host="https://ingest.example.com">
   <App />
@@ -124,7 +124,7 @@ Script-tag attributes: `data-write-key`, `data-host`, and optionally `data-batch
 | `context.traits` | The visitor's identify traits, copied onto every later event so server-side destinations can match on email and phone. Turn off with `carryTraits: false` | `{ "email": "fan@example.com", "phone": "+966500000000" }` |
 | `context.consent` | Categories from the `consent` option or `setConsent()`; omitted when unset | `{ "categoryPreferences": { "advertising": true } }` |
 | `context.page.lang` | `<html lang>` when set | `"ar"` |
-| `context.library` | This SDK, with the underlying library under `base` | `{ "name": "@sfere-io/sfere-sdk", "version": "0.4.1", "base": "analytics-next@1.84.3" }` |
+| `context.library` | This SDK, with the underlying library under `base` | `{ "name": "@sfere.io/sfere-sdk", "version": "0.4.1", "base": "analytics-next@1.84.3" }` |
 | `properties.sfere_dedup_id` | On `track` only: kept if your site set it, otherwise the event's `messageId`. Server-side destinations dedupe on `messageId`, so give browser pixels the `messageId` ([Deduplication](../../docs/INTEGRATION.md#deduplication)) | `"ajs-next-1727500000000-…"` |
 
 A landing `fbclid` becomes `context.clientIds.fbc` in Meta's `fb.1.<ms>.<fbclid>` format. The wire payload carries no `_metadata`, and no `integrations` unless you set some on the call.

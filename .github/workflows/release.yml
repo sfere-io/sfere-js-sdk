@@ -2,14 +2,21 @@ name: release
 
 # Push to main -> full CI gate, then Changesets decides what happens next:
 #   - pending changesets exist  -> open/update the "Version Packages" PR (no publish)
-#   - no pending changesets     -> that PR was just merged: publish to GitHub
-#                                  Packages, mirror to registry.npmjs.org, tag,
-#                                  cut a GitHub release with the CDN bundles
-#                                  attached, and deploy the CDN.
+#   - no pending changesets     -> that PR was just merged: stage the new
+#                                  versions on registry.npmjs.org (Trusted
+#                                  Publishing, `npm stage publish`). Nothing is
+#                                  installable until a maintainer approves it
+#                                  with 2FA.
+#   - run by hand after approving (Actions > release > Run workflow): tag the
+#     approved versions, cut a GitHub release with the CDN bundles attached,
+#     and deploy the CDN.
 # See docs/RELEASING.md for the developer-facing version of this flow.
 on:
   push:
     branches: [main]
+  # Finishes a release after its staged versions were approved on npmjs.com:
+  # gh workflow run release.yml -R sfere-io/sfere-js-sdk --ref main
+  workflow_dispatch:
 
 concurrency:
   group: release-${{ github.ref }}
@@ -31,25 +38,23 @@ jobs:
     permissions:
       contents: write # push the Version PR branch / the release tag
       pull-requests: write # open/update the Version Packages PR
-      packages: write # publish to GitHub Packages
-      id-token: write # npm Trusted Publishing (OIDC) to registry.npmjs.org, see scripts/npmjs-publish.sh
+      id-token: write # npm Trusted Publishing (OIDC) to registry.npmjs.org
     outputs:
       published: ${{ steps.tag.outputs.published }}
       version: ${{ steps.tag.outputs.version }}
+      sha: ${{ steps.tag.outputs.sha }}
       node-published: ${{ steps.tag.outputs.node-published }}
-      npmjs: ${{ steps.tag.outputs.npmjs }}
       node-version: ${{ steps.tag.outputs.node-version }}
-      node-npmjs: ${{ steps.tag.outputs.node-npmjs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # changesets diffs against history to find pending changesets
+      # No registry-url: npm's default registry is registry.npmjs.org, and
+      # Trusted Publishing needs no .npmrc or token at all.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
-          registry-url: https://npm.pkg.github.com
-          scope: "@sfere-io"
       - run: npm ci
       # Build here: `changeset publish` packs whatever is on disk, and dist/ is
       # gitignored. Without this step every npm release up to sfere-sdk 0.3.1 and
@@ -58,18 +63,31 @@ jobs:
       - name: Build
         run: npm run build
 
+      # `npm stage publish` (staged publishing) and Trusted Publishing need a
+      # recent npm, and Node 22 (.nvmrc) ships npm 10. Installed before the
+      # publish script runs. Pinned to an exact version.
+      - name: Install npm for Trusted Publishing
+        run: |
+          npm install --global npm@11.21.0
+          echo "node $(node --version), npm $(npm --version)"
+
       # changesets/action v2 (requires @changesets/cli v3, which package.json
       # pins). `version-script` runs when there are pending changesets: bumps
       # package.json, compiles CHANGELOG.md, and opens/updates the PR through the
       # GitHub API with the default GITHUB_TOKEN. `publish-script` runs instead
-      # when there are none (i.e. that PR was just merged). Tagging and the
-      # GitHub release are this workflow's job, not the action's: the `release`
-      # script passes --no-git-tag, and `push-git-tags` / `create-github-releases`
-      # are off, so the canonical vX.Y.Z tag is created once, below, and the
-      # release (with the CDN bundles attached) is cut by release-artifacts.
-      # NODE_AUTH_TOKEN feeds the .npmrc actions/setup-node wrote for
-      # npm.pkg.github.com. Repository setting required: Actions > General >
-      # "Allow GitHub Actions to create and approve pull requests".
+      # when there are none (i.e. that PR was just merged, or this is the
+      # finishing run): scripts/stage-release.sh stages every version that is
+      # neither on registry.npmjs.org nor already staged, and pushes a
+      # `staged/<tag>` marker for each. No npm token: `npm stage publish`
+      # exchanges this job's OIDC token (`id-token: write`) for a short-lived
+      # token and attaches provenance. That needs a trusted publisher for each
+      # package on npmjs.com (docs/RELEASING.md, "Trusted Publishing").
+      # Tagging and the GitHub release are this workflow's job, not the
+      # action's: `push-git-tags` / `create-github-releases` are off, so the
+      # canonical vX.Y.Z tag is created once, below, and the release (with the
+      # CDN bundles attached) is cut by release-artifacts. Repository setting
+      # required: Actions > General > "Allow GitHub Actions to create and
+      # approve pull requests".
       - name: Version Packages PR or publish
         id: changesets
         uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
@@ -80,48 +98,27 @@ jobs:
           pr-title: "chore: version packages"
           create-github-releases: false
           push-git-tags: false
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # npm Trusted Publishing needs npm 11.5.1 or newer, and Node 22 (.nvmrc)
-      # ships npm 10. Upgraded only here, after `changeset publish`, so the
-      # GitHub Packages publish keeps the bundled npm. Pinned to an exact version.
-      - name: Install npm for Trusted Publishing
-        if: steps.changesets.outputs.has-changesets == 'false'
-        run: |
-          npm install --global npm@11.21.0
-          echo "node $(node --version), npm $(npm --version)"
-
-      # Decide "published" ourselves instead of trusting the action's output: with
-      # `--no-git-tag` the Changesets CLI emits no release events, so the action
-      # reports published=false even after a successful publish (seen on the
-      # first 0.1.0 release). Rule, per public workspace package: when no
-      # changesets are pending, the version in its package.json exists on the
-      # registry, and its tag does not exist yet, this run released it. That also
-      # recovers a run whose later jobs failed: the next push to main tags (and,
-      # for the browser SDK, deploys) the missed version.
+      # Decide "published" ourselves: the action's own output knows nothing
+      # about staging or approval. Rule, per public workspace package: when no
+      # changesets are pending, the version in its package.json exists on
+      # registry.npmjs.org (i.e. it was approved), and its tag does not exist
+      # yet, this run released it. A version that is staged but not approved
+      # yet is reported in the step summary and skipped, not failed. That also
+      # recovers a run whose later jobs failed: the next run tags (and, for the
+      # browser SDK, deploys) the missed version. Every package is downloaded
+      # back and checked before any tag is pushed, so a broken publish leaves
+      # nothing tagged.
       #
-      # Each version this run released is also mirrored to the public npm
-      # registry (registry.npmjs.org, public access) by scripts/npmjs-publish.sh,
-      # which republishes the exact tarball downloaded back from GitHub Packages
-      # and downloads the npmjs copy back without a token. Only untagged versions
-      # are mirrored, so versions released before npmjs publishing existed
-      # (sfere-sdk <= 0.4.1, sfere-node <= 0.2.1) are never backfilled. The
-      # script authenticates with the NPM_TOKEN secret while it is set, and
-      # otherwise with npm Trusted Publishing: this job's `id-token: write`
-      # lets `npm publish` exchange a GitHub OIDC token for a short-lived npm
-      # token and attach provenance. A package without a trusted publisher on
-      # npmjs.com fails the step (nothing tagged) rather than being skipped.
-      # Every package is verified and mirrored before any tag is pushed, so a
-      # failed npmjs publish leaves nothing tagged and a re-run of this job
-      # retries it (the script skips a version already on npmjs).
+      # The tag goes on the commit the `staged/<tag>` marker records, which is
+      # what the approved bytes were built from, and the marker is then
+      # deleted. Without a marker (a version published by hand) it goes on HEAD.
       #
       # Tags: the browser SDK keeps plain `vX.Y.Z` (cdn-deploy.yml and the
       # GitHub release check it out); every other package gets the Changesets
       # form `<name>@X.Y.Z`. `published`/`version` describe the browser SDK
       # (release artifacts, the React release page and the CDN deploy hang off
       # it); `node-published`/`node-version` drive the Node SDK's release page.
-      # `npmjs`/`node-npmjs` say whether that version is on registry.npmjs.org.
       #
       # Pushed with the GITHUB_TOKEN credentials actions/checkout persisted. A tag
       # pushed by GITHUB_TOKEN never starts other workflows, which is fine: the
@@ -130,14 +127,13 @@ jobs:
         id: tag
         if: steps.changesets.outputs.has-changesets == 'false'
         run: |
-          BROWSER="@sfere-io/sfere-sdk"
-          NODE="@sfere-io/sfere-node"
+          BROWSER="@sfere.io/sfere-sdk"
+          NODE="@sfere.io/sfere-node"
           PUBLISHED=false
           VERSION=""
-          NPMJS=false
+          SHA=""
           NODE_PUBLISHED=false
           NODE_VERSION=""
-          NODE_NPMJS=false
           RELEASED=()
           for manifest in packages/*/package.json; do
             if [ "$(node -p "require('./$manifest').private === true")" = "true" ]; then continue; fi
@@ -148,63 +144,68 @@ jobs:
               echo "$TAG already tagged; nothing to release for $NAME." >> "$GITHUB_STEP_SUMMARY"
               continue
             fi
+            MARKER="staged/$TAG"
+            if git ls-remote --exit-code --tags origin "refs/tags/$MARKER" > /dev/null; then
+              git fetch --quiet origin "refs/tags/$MARKER:refs/tags/$MARKER"
+              TARGET="$(git rev-parse "refs/tags/$MARKER^{commit}")"
+              HAS_MARKER=true
+            else
+              TARGET="$(git rev-parse HEAD)"
+              HAS_MARKER=false
+            fi
             if ! npm view "$NAME@$V" version > /dev/null 2>&1; then
-              echo "::error::$NAME@$V is not on the registry after the publish step."
+              if [ "$HAS_MARKER" = true ]; then
+                echo "::notice::$NAME@$V is staged and waiting for approval: \`npm stage list $NAME\`, then \`npm stage approve <id>\` (or approve it on npmjs.com), then run this workflow again (Actions > release > Run workflow)."
+                echo "$NAME@$V is staged and waiting for approval; approve it, then run this workflow again." >> "$GITHUB_STEP_SUMMARY"
+                continue
+              fi
+              echo "::error::$NAME@$V is neither on registry.npmjs.org nor staged after the publish step."
               exit 1
             fi
-            # The registry's copy must be complete: fetch it back and require its
-            # entry points (the release that shipped without dist/ passed every
-            # other check).
+            # Read anonymously, exactly as a user installs. registry.npmjs.org
+            # can answer 404 for a short while after an approval.
             SCRATCH="$(mktemp -d)"
-            (cd "$SCRATCH" && npm pack "$NAME@$V" --json > pack.json)
+            for attempt in $(seq 1 12); do
+              if (cd "$SCRATCH" && npm pack "$NAME@$V" --json > pack.json 2> pack.err); then break; fi
+              if [ "$attempt" -eq 12 ]; then
+                cat "$SCRATCH/pack.err"
+                echo "::error::$NAME@$V is listed on registry.npmjs.org but its tarball cannot be downloaded."
+                exit 1
+              fi
+              echo "registry.npmjs.org does not serve $NAME@$V yet; retrying in 15 s ($attempt/12)."
+              sleep 15
+            done
+            # The registry's copy must be complete: require its entry points
+            # (the release that shipped without dist/ passed every other check).
             for f in dist/index.js dist/index.cjs dist/index.d.ts; do
               if ! node -e "process.exit(require('$SCRATCH/pack.json')[0].files.some(x => x.path === '$f') ? 0 : 1)"; then
-                echo "::error::$NAME@$V on the registry has no $f: the published package is broken."
+                echo "::error::$NAME@$V on registry.npmjs.org has no $f: the published package is broken."
                 exit 1
               fi
             done
-            echo "Registry copy of $NAME@$V contains its dist/ entry points."
-            TARBALL="$SCRATCH/$(node -p "require('$SCRATCH/pack.json')[0].filename")"
-            MIRROR="$(scripts/npmjs-publish.sh "$NAME" "$V" "$TARBALL")"
-            case "$MIRROR" in
-              published) echo "Published $NAME@$V to registry.npmjs.org." >> "$GITHUB_STEP_SUMMARY" ;;
-              exists) echo "$NAME@$V was already on registry.npmjs.org." >> "$GITHUB_STEP_SUMMARY" ;;
-              *) echo "$NAME@$V was NOT published to registry.npmjs.org: no NPM_TOKEN secret and no OIDC token (id-token: write)." >> "$GITHUB_STEP_SUMMARY" ;;
-            esac
-            RELEASED+=("$NAME|$V|$TAG|$MIRROR")
+            echo "registry.npmjs.org copy of $NAME@$V contains its dist/ entry points."
+            RELEASED+=("$NAME|$V|$TAG|$TARGET|$HAS_MARKER")
           done
           for entry in "${RELEASED[@]}"; do
-            IFS="|" read -r NAME V TAG MIRROR <<< "$entry"
-            ON_NPMJS=false
-            if [ "$MIRROR" = "published" ] || [ "$MIRROR" = "exists" ]; then ON_NPMJS=true; fi
-            git tag "$TAG" HEAD
-            git push origin "$TAG"
-            echo "Released $NAME@$V as $TAG." >> "$GITHUB_STEP_SUMMARY"
+            IFS="|" read -r NAME V TAG TARGET HAS_MARKER <<< "$entry"
+            git tag "$TAG" "$TARGET"
+            git push origin "refs/tags/$TAG"
+            if [ "$HAS_MARKER" = true ]; then git push origin ":refs/tags/staged/$TAG"; fi
+            echo "Released $NAME@$V as $TAG (commit ${TARGET:0:7})." >> "$GITHUB_STEP_SUMMARY"
             if [ "$NAME" = "$BROWSER" ]; then
               PUBLISHED=true
               VERSION="$V"
-              NPMJS="$ON_NPMJS"
+              SHA="$TARGET"
             elif [ "$NAME" = "$NODE" ]; then
               NODE_PUBLISHED=true
               NODE_VERSION="$V"
-              NODE_NPMJS="$ON_NPMJS"
             fi
           done
           echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "npmjs=$NPMJS" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "node-published=$NODE_PUBLISHED" >> "$GITHUB_OUTPUT"
           echo "node-version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "node-npmjs=$NODE_NPMJS" >> "$GITHUB_OUTPUT"
-        env:
-          # GitHub Packages reads (npm view / npm pack above) go through the
-          # .npmrc actions/setup-node wrote, with this token.
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # npm token for registry.npmjs.org, kept during the move to Trusted
-          # Publishing. The script passes it to npm as NODE_AUTH_TOKEN for the
-          # npmjs publish only. Empty = Trusted Publishing (OIDC). Remove this
-          # line and the secret once Trusted Publishing works (docs/RELEASING.md).
-          NPM_PUBLISH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   release-artifacts:
     needs: version-or-publish
@@ -238,36 +239,30 @@ jobs:
           esac
 
       # One release page per framework: Browser (this tag, with the CDN files),
-      # React and Node. React ships inside @sfere-io/sfere-sdk at the /react
+      # React and Node. React ships inside @sfere.io/sfere-sdk at the /react
       # subpath, so its page is the same version and commit as the browser one,
       # under its own `react-vX.Y.Z` tag. Both pages quote this version's
       # CHANGELOG.md section.
       - name: Release notes
         env:
           VERSION: ${{ needs.version-or-publish.outputs.version }}
-          ON_NPMJS: ${{ needs.version-or-publish.outputs.npmjs }}
           REPO_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           awk -v heading="## $VERSION" '$0 == heading { found = 1; next } /^## / && found { exit } found' \
             packages/browser/CHANGELOG.md > "$RUNNER_TEMP/browser-changes.md"
-          if [ "$ON_NPMJS" = "true" ]; then
-            WHERE="on npm (registry.npmjs.org, mirrored on GitHub Packages)"
-          else
-            WHERE="on GitHub Packages"
-          fi
           {
-            echo "Browser SDK \`@sfere-io/sfere-sdk@$VERSION\`: $WHERE, and the CDN files attached below."
+            echo "Browser SDK \`@sfere.io/sfere-sdk@$VERSION\`: on npm (registry.npmjs.org), and the CDN files attached below."
             cat "$RUNNER_TEMP/browser-changes.md"
           } > "$RUNNER_TEMP/browser-notes.md"
           {
-            echo "React bindings for the Sfere browser SDK. They ship inside \`@sfere-io/sfere-sdk@$VERSION\` at the \`@sfere-io/sfere-sdk/react\` subpath, so this page has the same version and commit as [Browser SDK v$VERSION]($REPO_URL/releases/tag/v$VERSION)."
+            echo "React bindings for the Sfere browser SDK. They ship inside \`@sfere.io/sfere-sdk@$VERSION\` at the \`@sfere.io/sfere-sdk/react\` subpath, so this page has the same version and commit as [Browser SDK v$VERSION]($REPO_URL/releases/tag/v$VERSION)."
             echo
             echo '```sh'
-            echo "npm install @sfere-io/sfere-sdk@$VERSION"
+            echo "npm install @sfere.io/sfere-sdk@$VERSION"
             echo '```'
             echo
             echo '```tsx'
-            echo 'import { SfereProvider, useSfere, usePageTracking } from "@sfere-io/sfere-sdk/react";'
+            echo 'import { SfereProvider, useSfere, usePageTracking } from "@sfere.io/sfere-sdk/react";'
             echo '```'
             echo
             echo "React 17 to 19 is an optional peer dependency."
@@ -289,19 +284,20 @@ jobs:
             packages/browser/dist/cdn/manifest.json
 
       # The action creates the `react-v` tag on the commit `vX.Y.Z` points at
-      # (github.sha: the tag step tagged HEAD of this run). make_latest stays
+      # (the tag step's `sha` output, not github.sha: a release is finished by a
+      # later run, when main may have moved on). make_latest stays
       # false so the browser release remains the repository's "Latest".
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: "react-v${{ needs.version-or-publish.outputs.version }}"
-          target_commitish: ${{ github.sha }}
+          target_commitish: ${{ needs.version-or-publish.outputs.sha }}
           name: "React v${{ needs.version-or-publish.outputs.version }}"
           prerelease: ${{ steps.kind.outputs.prerelease }}
           make_latest: false
           body_path: ${{ runner.temp }}/react-notes.md
 
   # Release page for the Node SDK, cut whenever this run tagged a new
-  # `@sfere-io/sfere-node@X.Y.Z`, with or without a browser release.
+  # `@sfere.io/sfere-node@X.Y.Z`, with or without a browser release.
   release-node:
     needs: version-or-publish
     if: needs.version-or-publish.outputs.node-published == 'true'
@@ -309,9 +305,8 @@ jobs:
     permissions:
       contents: write # create the GitHub release
     env:
-      TAG: "@sfere-io/sfere-node@${{ needs.version-or-publish.outputs.node-version }}"
+      TAG: "@sfere.io/sfere-node@${{ needs.version-or-publish.outputs.node-version }}"
       VERSION: ${{ needs.version-or-publish.outputs.node-version }}
-      ON_NPMJS: ${{ needs.version-or-publish.outputs.node-npmjs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -320,16 +315,11 @@ jobs:
       - name: Release notes
         id: notes
         run: |
-          if [ "$ON_NPMJS" = "true" ]; then
-            WHERE="on npm (registry.npmjs.org, mirrored on GitHub Packages)"
-          else
-            WHERE="on GitHub Packages"
-          fi
           {
-            echo "Node SDK \`@sfere-io/sfere-node@$VERSION\` $WHERE."
+            echo "Node SDK \`@sfere.io/sfere-node@$VERSION\` on npm (registry.npmjs.org)."
             echo
             echo '```sh'
-            echo "npm install @sfere-io/sfere-node@$VERSION"
+            echo "npm install @sfere.io/sfere-node@$VERSION"
             echo '```'
             awk -v heading="## $VERSION" '$0 == heading { found = 1; next } /^## / && found { exit } found' \
               packages/node/CHANGELOG.md

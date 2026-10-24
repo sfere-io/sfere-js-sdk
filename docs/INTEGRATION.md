@@ -26,7 +26,7 @@ You also need the ingestion host your events go to. The Sfere event host is `htt
 **npm**: Better for single-page apps and teams using a bundler (webpack, Vite, etc.). Allows you to import directly in your framework. Install it from the public npm registry; no token or `.npmrc` setup is needed:
 
 ```bash
-npm install @sfere-io/sfere-sdk
+npm install @sfere.io/sfere-sdk
 ```
 
 ## Content Security Policy (CSP)
@@ -53,7 +53,7 @@ If you use a nonce, put it on the inline loader snippet (`<script nonce="…">`)
 
 Call `sfere.page()` every time the route changes. The SDK does not track route changes automatically. With the CDN loader snippet the first page view is already sent by the snippet's `q.page()`; with npm, send it yourself after `load()`.
 
-### React and Next.js: `@sfere-io/sfere-sdk/react`
+### React and Next.js: `@sfere.io/sfere-sdk/react`
 
 The package ships React bindings as a subpath (React 17+ as an optional peer; nothing React-related loads unless you import it):
 
@@ -65,7 +65,7 @@ React Router v7:
 
 ```tsx
 import { useLocation } from "react-router-dom";
-import { SfereProvider, usePageTracking, useSfere } from "@sfere-io/sfere-sdk/react";
+import { SfereProvider, usePageTracking, useSfere } from "@sfere.io/sfere-sdk/react";
 
 function PageViews() {
   const { pathname, search } = useLocation();
@@ -94,7 +94,7 @@ Next.js App Router (`app/providers.tsx`, rendered from `app/layout.tsx`). The mo
 "use client";
 import { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { SfereProvider, usePageTracking } from "@sfere-io/sfere-sdk/react";
+import { SfereProvider, usePageTracking } from "@sfere.io/sfere-sdk/react";
 
 function PageViews() {
   const pathname = usePathname();
@@ -120,7 +120,7 @@ During server rendering the provider hands out an inert instance whose methods r
 ### Vue Router
 
 ```javascript
-import { SfereAnalytics } from "@sfere-io/sfere-sdk";
+import { SfereAnalytics } from "@sfere.io/sfere-sdk";
 import router from "./router";
 
 const sfere = SfereAnalytics.load({

@@ -65,9 +65,9 @@ What the suite covers, beyond the per-feature specs:
     - the end-user IP, user agent, locale, page, campaign and click IDs (including `fbclid` → `fbc`);
     - the dedup id.
   - A TypeScript consumer is type-checked under `node16` and `bundler` resolution.
-- **Node SDK against staging** (`npm run smoke:staging -w @sfere-io/sfere-node`, manual, needs `SFERE_WRITE_KEY` and `SFERE_HOST`): sends a tagged identify and purchase through the built SDK and requires `okEvents: 2`.
+- **Node SDK against staging** (`npm run smoke:staging -w @sfere.io/sfere-node`, manual, needs `SFERE_WRITE_KEY` and `SFERE_HOST`): sends a tagged identify and purchase through the built SDK and requires `okEvents: 2`.
 
-Because `release.yml` calls this workflow before publishing, a red e2e run blocks the npm publish, the tag and the CDN deploy.
+Because `release.yml` calls this workflow before publishing, a red e2e run blocks the npm staging, the tag and the CDN deploy.
 
 On failure, the `playwright-report` artifact (`packages/browser/playwright-report/`) is uploaded (HTML report with
 traces/screenshots).
@@ -91,10 +91,9 @@ Reuses `ci.yml` in full (`secrets: inherit`) before doing anything else. See
 release, and the call into `cdn-deploy.yml`. Nothing in this workflow has a
 meaningful "run it locally" equivalent — it's inherently a CI-only,
 merge-triggered flow (Changesets needs to compare against `main`'s history,
-and publishing needs the repo's `GITHUB_TOKEN`, plus npm Trusted Publishing
-through the job's OIDC token, or the transitional `NPM_TOKEN` secret, for the
-copy on the public npm registry). The npmjs half can be dry-run locally with
-a token: `NPM_PUBLISH_TOKEN=<token> DRY_RUN=1 scripts/npmjs-publish.sh <name> <version> <tarball>`.
+and publishing needs npm Trusted Publishing through the job's OIDC token,
+plus the repo's `GITHUB_TOKEN` for the tags and releases). The publish itself
+can be dry-run locally: `npm run build && DRY_RUN=1 npm run release` (needs npm 11.21.0 or newer for `npm stage publish`).
 
 ## `cdn-deploy.yml` — called by `release.yml`, or run by hand
 
