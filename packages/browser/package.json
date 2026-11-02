@@ -76,7 +76,7 @@
     "@sfere.io/sfere-shared": "0.0.0",
     "@playwright/test": "^1.64.1",
     "@testing-library/react": "^16.3.3",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@vitest/coverage-v8": "^5.0.5",
     "happy-dom": "^20.14.5",
