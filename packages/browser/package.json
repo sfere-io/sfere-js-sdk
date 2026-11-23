@@ -62,7 +62,7 @@
     "prepublishOnly": "node -e \"for (const f of ['dist/index.js','dist/index.cjs','dist/index.d.ts']) require('node:fs').accessSync(f)\" || (echo 'refusing to publish: dist/ is not built (run npm run build)' >&2; exit 1)"
   },
   "dependencies": {
-    "@segment/analytics-next": "1.84.3"
+    "@segment/analytics-next": "1.84.4"
   },
   "peerDependencies": {
     "react": ">=17 <20"
@@ -74,11 +74,11 @@
   },
   "devDependencies": {
     "@sfere.io/sfere-shared": "0.0.0",
-    "@playwright/test": "^1.65.0",
+    "@playwright/test": "^1.65.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
-    "@vitest/coverage-v8": "^5.1.0",
+    "@vitest/coverage-v8": "^5.1.1",
     "happy-dom": "^20.14.5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
