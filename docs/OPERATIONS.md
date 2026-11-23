@@ -49,27 +49,29 @@ gh workflow run cdn-deploy.yml -R sfere-io/sfere-js-sdk --ref main -f version=0.
 
 ### Before the second release of a new minor line (0.2.x, 0.3.x, …)
 
-The deploy account may overwrite only the alias folders it was provisioned for. Since 2026-09-29 that is `sdk/v0.1/` to `sdk/v0.4/` (provisioned ahead, after the 0.3.1 alias move failed on this). The first `0.2.0` release creates `sdk/v0.2/` without trouble. **Before `0.2.1`**, run:
+The deploy account may overwrite only the alias folders it was provisioned for: `sdk/v0.1/` to `sdk/v0.4/` (provisioned ahead, after the 0.3.1 alias move failed on this). The first `0.2.0` release creates `sdk/v0.2/` without trouble. **Before `0.2.1`**, add the new line to `sdk_cdn_aliases` in the terraform repository and apply it:
 
-```sh
-CDN_ALIASES="v0.1 v0.2 v0.3 v0.4 v0.5" infra/cdn/provision.sh   # add the new line to the full list
+```hcl
+# sfere-terraform, sfere-platform/accounts/gcp/sfere-prod/terraform.tfvars
+sdk_cdn_aliases = ["v0.1", "v0.2", "v0.3", "v0.4", "v0.5"]   # add the new line to the full list
 ```
 
 If you skip this, the second deploy on that line fails with a 403 on the alias upload. From 1.0 onwards, alias folders are per major (`v1`, `v2`, …). Background: [../infra/cdn/README.md](../infra/cdn/README.md).
 
-## Cloud resources (GCP project `koratona-9791a`)
+## Cloud resources (GCP project `sfere-prod`)
+
+Moved from project `koratona-9791a` in November 2026. The resources are defined in `sfere-io/sfere-terraform`, `sfere-platform/accounts/gcp/sfere-prod/cdn.tf`, not by hand and not by `infra/cdn/provision.sh` any more.
 
 | Resource | Name |
 |---|---|
-| Bucket (me-central2, versioned, uniform access) | `sfere-sdk-cdn` |
-| Backend bucket with Cloud CDN | `sfere-sdk-cdn-backend` |
-| URL map / HTTPS proxy / forwarding rule | `sfere-sdk-cdn-lb` / `sfere-sdk-cdn-https-proxy` / `sfere-sdk-cdn-https` |
-| Static IP | `sfere-sdk-cdn-ip` = `136.69.38.89` |
-| Managed certificate | `sfere-sdk-cdn-cert` (auto-renews) |
-| DNS | `A cdn.sfere.io → 136.69.38.89`, TTL 300, in Cloud DNS zone `sfereio` |
-| Deploy service account | `sfere-sdk-cdn-deploy@koratona-9791a.iam.gserviceaccount.com` |
-| Custom roles | `sfereSdkCdnPublicReader` (public GET, no listing), `sfereSdkCdnAliasOverwriter` (delete, alias folders only) |
-| GitHub → GCP sign-in | WIF pool `github-pool` / provider `github-provider`. The provider only accepts repos owned by the Sfere org, keyed on the org's numeric id (`repository_owner_id == 194491647`), and the SA is bound to this repo's numeric id, so renaming the org or repo does not break the sign-in |
+| Bucket (me-central2, versioned, uniform access) | `sfere-prod-sdk-cdn-gcp` |
+| Backend bucket with Cloud CDN, URL map, HTTPS proxy, forwarding rule | all named `sfere-prod-sdk-cdn` |
+| Static IP | `sfere-prod-sdk-cdn` = `136.82.60.50` |
+| Certificate | Certificate Manager `sfere-prod-sdk-cdn`, authorized by the `_acme-challenge.cdn.sfere.io` CNAME (auto-renews; keep that record) |
+| DNS | `A cdn.sfere.io → 136.82.60.50`, TTL 300, in Route 53 (zone `sfere.io`, AWS management account) |
+| Deploy service account | `sfere-prod-gh-sdk@sfere-prod.iam.gserviceaccount.com` |
+| Custom roles | `sfereSdkCdnPublicReader` (public GET, no listing), `sfereSdkCdnAliasOverwriter` (delete, alias folders only), `sfereSdkCdnInvalidator` (cache purge on this URL map) |
+| GitHub → GCP sign-in | WIF pool `sfere-prod-github` / provider `github-sdk`. It accepts only this repository (by numeric id, so a rename does not break it), only from the `cdn-production` environment |
 
 - **Cost:** the load balancer forwarding rule and Cloud CDN bill monthly even with no traffic.
 - **HTTPS only:** port 80 is not served.

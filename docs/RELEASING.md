@@ -153,20 +153,20 @@ The CDN deploy service account may overwrite only the alias prefixes it was
 provisioned for (an IAM Condition enumerates them — `../infra/cdn/README.md`
 "Alias overwrite"). The *first* release on a new line (e.g. `0.2.0` creating
 `/sdk/v0.2/`) works without any change; the *second* one (e.g. `0.2.1`,
-overwriting `/sdk/v0.2/`) fails on the alias upload until someone re-runs
-`infra/cdn/provision.sh` with `CDN_ALIASES` including the new line. Do that
-right after the first release of the line. If a deploy already failed on the
+overwriting `/sdk/v0.2/`) fails on the alias upload until the new line is added
+to `sdk_cdn_aliases` in the terraform repository (`sfere-io/sfere-terraform`, `sfere-platform/accounts/gcp/sfere-prod/cdn.tf`)
+and applied. Do that right after the first release of the line. If a deploy already failed on the
 alias, the immutable files are published, so a plain re-run stops on the
 immutability guard (HTTP 412); re-point only the alias instead:
 
 ```sh
-CDN_ALIASES="v0.1 v0.2 v0.3 v0.4" infra/cdn/provision.sh
+# after the terraform change is applied
 gh workflow run cdn-deploy.yml --ref main -f version=<X.Y.Z> -f alias_only=true
 ```
 
-As of 2026-09-29 the deploy account may overwrite `v0.1` to `v0.4`, so the
-next line that needs this is `v0.5`. `sdk/latest/` is always in the condition
-(`provision.sh` adds it), so it never needs a re-run of its own.
+The deploy account may overwrite `v0.1` to `v0.4`, so the next line that needs
+this is `v0.5`. `sdk/latest/` is always in the condition, so it never needs a
+change of its own.
 
 ### Before releasing a major
 
@@ -248,7 +248,8 @@ what's actually being served:
 | `SONAR_TOKEN` | secret | `ci.yml` (`sonar` job) | Optional — the job skips cleanly (step-summary note) if unset. |
 | `WIF_PROVIDER` | repo variable | `cdn-deploy.yml` | Full WIF provider resource name. See `../infra/cdn/README.md`. |
 | `CDN_DEPLOY_SA` | repo variable | `cdn-deploy.yml` | The deploy service account's email. |
-| `GCP_PROJECT_ID` | repo variable | `cdn-deploy.yml` | `koratona-9791a`. |
+| `GCP_PROJECT_ID` | repo variable | `cdn-deploy.yml` | `sfere-prod`. |
+| `CDN_URL_MAP` | repo variable | `cdn-deploy.yml` | `sfere-prod-sdk-cdn`, the load balancer whose cache is purged after an alias moves. |
 | `CDN_BUCKET` | repo variable | `cdn-deploy.yml` | Bare bucket name, no `gs://`. |
 | `CDN_BASE_URL` | repo variable | `cdn-deploy.yml` | `https://cdn.sfere.io`. Optional — the post-deploy smoke test is skipped (not failed) when unset. |
 | `cdn-production` | GitHub Environment | `cdn-deploy.yml` (`deploy` job) | Deployments only from `main`. No required reviewer (not available on the organisation's plan for private repos), see `CDN-POLICY.md` "Who approves". |
