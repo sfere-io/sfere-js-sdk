@@ -18,6 +18,14 @@
 # cors.json/lifecycle.json) is safe.
 set -euo pipefail
 
+# Superseded in November 2026: the CDN moved to project sfere-prod and is defined in sfere-io/sfere-terraform
+# (sfere-platform/accounts/gcp/sfere-prod/cdn.tf). This script targets koratona-9791a, which is being deleted.
+# A new alias line is now added to `sdk_cdn_aliases` there, not here.
+if [ "${ALLOW_LEGACY_PROVISION:-0}" != 1 ]; then
+  echo "provision.sh is superseded by sfere-terraform (gcp/sfere-prod/cdn.tf); see infra/cdn/README.md" >&2
+  exit 1
+fi
+
 DRY_RUN=0
 for arg in "$@"; do
   case "$arg" in

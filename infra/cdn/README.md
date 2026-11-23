@@ -1,5 +1,12 @@
 # Sfere SDK CDN infrastructure
 
+> **Moved in November 2026.** The CDN now lives in GCP project `sfere-prod` and is defined in
+> `sfere-io/sfere-terraform`, `sfere-platform/accounts/gcp/sfere-prod/cdn.tf`. The live names are in
+> `../../docs/OPERATIONS.md`. `provision.sh` created the original setup in `koratona-9791a`, a
+> project that is being deleted; it is kept for its history and must not be run. The design
+> below (public read without listing, immutable version paths, alias overwrite by IAM condition)
+> is unchanged and is what the terraform implements; the resource names in the text are the old ones.
+
 What serves `https://cdn.sfere.io/sdk/...`. Provisioned by `provision.sh`
 (idempotent, **not run by CI** — a human with the right IAM in `koratona-9791a`
 runs it, once, by hand). **Provisioned on 2026-09-28**; live resource names and

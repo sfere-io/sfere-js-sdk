@@ -148,7 +148,7 @@ jobs:
       - name: Invalidate the alias on the CDN
         if: vars.CDN_BASE_URL != '' && !contains(inputs.version, '-')
         env:
-          CDN_URL_MAP: ${{ vars.CDN_URL_MAP || 'sfere-sdk-cdn-lb' }}
+          CDN_URL_MAP: ${{ vars.CDN_URL_MAP || 'sfere-prod-sdk-cdn' }}
           CDN_PROJECT: ${{ vars.GCP_PROJECT_ID }}
           SEGMENTS: ${{ steps.publish.outputs.alias_segment }}${{ steps.publish.outputs.latest_moved == 'true' && ' latest' || '' }}
         run: |
